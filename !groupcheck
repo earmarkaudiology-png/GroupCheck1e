@@ -101,6 +101,22 @@ on('ready', function () {
         { label: 'Full plate', penalty: -5 }
     ];
 
+    var BLOODIED_MARKER = 'Bloodied::270413';
+    var UNCONSCIOUS_MARKER = 'Unconcious::270399';
+    var DEAD_MARKER = 'dead';
+    var NEGATIVE_HP_MARKERS = {
+        '-1': '-1::7577794',
+        '-2': '-2::7577795',
+        '-3': '-3::7577796',
+        '-4': '-4::7577797',
+        '-5': '-5::7577798',
+        '-6': '-6::7577799',
+        '-7': '-7::7577800',
+        '-8': '-8::7577801',
+        '-9': '-9::7577802',
+        '-10': '-10::7577803'
+    };
+
     function h(s) {
         if (s === undefined || s === null) { return ''; }
         s = String(s);
@@ -146,6 +162,7 @@ on('ready', function () {
     }
 
     function getAttr(cid, name) {
+        if (!cid) { return ''; }
         var a = findObjs({
             _type: 'attribute',
             _characterid: cid,
@@ -155,9 +172,12 @@ on('ready', function () {
     }
 
     function getCharName(cid, token) {
-        var ch = getObj('character', cid);
-        if (ch) {
-            return ch.get('name') || (token && token.get('name')) || 'Unnamed';
+        var ch;
+        if (cid) {
+            ch = getObj('character', cid);
+            if (ch) {
+                return ch.get('name') || (token && token.get('name')) || 'Unnamed';
+            }
         }
         return (token && token.get('name')) || 'Unnamed';
     }
@@ -210,16 +230,18 @@ on('ready', function () {
     function getTargets(ids) {
         var out = [];
         var seen = {};
-        var i, token, cid;
+        var i, token, cid, key;
 
         for (i = 0; i < ids.length; i++) {
             token = getObj('graphic', ids[i]);
             if (!token) { continue; }
-            cid = token.get('represents');
-            if (!cid) { continue; }
-            if (seen[ids[i]]) { continue; }
 
-            seen[ids[i]] = true;
+            cid = token.get('represents') || '';
+            key = token.id;
+
+            if (seen[key]) { continue; }
+            seen[key] = true;
+
             out.push({
                 token: token,
                 cid: cid,
@@ -269,27 +291,92 @@ on('ready', function () {
         return '?{' + queryLabel + '|' + parts.join('|') + '}';
     }
 
+    function getMarkerArray(token) {
+        var current = token.get('statusmarkers') || '';
+        return current ? current.split(',').filter(Boolean) : [];
+    }
+
+    function setMarkerArray(token, arr) {
+        token.set('statusmarkers', arr.join(','));
+    }
+
     function applyMarker(token, marker) {
-        var current, arr;
+        var arr;
         if (!marker || marker === 'none') { return; }
-
-        current = token.get('statusmarkers') || '';
-        arr = current ? current.split(',') : [];
-
+        arr = getMarkerArray(token);
         if (arr.indexOf(marker) === -1) {
             arr.push(marker);
-            token.set('statusmarkers', arr.join(','));
+            setMarkerArray(token, arr);
         }
+    }
+
+    function removeMarker(token, marker) {
+        var arr = getMarkerArray(token).filter(function (m) {
+            return m !== marker;
+        });
+        setMarkerArray(token, arr);
     }
 
     function clearMarkers(token) {
         token.set('statusmarkers', '');
     }
 
+    function removeAllNegativeHpMarkers(token) {
+        var negativeValues = Object.keys(NEGATIVE_HP_MARKERS).map(function (k) {
+            return NEGATIVE_HP_MARKERS[k];
+        });
+        var arr = getMarkerArray(token).filter(function (m) {
+            return negativeValues.indexOf(m) === -1;
+        });
+        setMarkerArray(token, arr);
+    }
+
+    function setNegativeHpMarker(token, hp) {
+        removeAllNegativeHpMarkers(token);
+        var marker = NEGATIVE_HP_MARKERS[String(hp)];
+        if (marker) {
+            applyMarker(token, marker);
+        }
+    }
+
+    function updateHpMarkers(token) {
+        var hp = intVal(token.get('bar1_value'), 0);
+
+        removeMarker(token, BLOODIED_MARKER);
+        removeMarker(token, UNCONSCIOUS_MARKER);
+        removeMarker(token, DEAD_MARKER);
+        removeAllNegativeHpMarkers(token);
+
+        if (hp > 0) {
+            return;
+        }
+
+        if (hp === 0) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            return;
+        }
+
+        if (hp < 0 && hp > -10) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            setNegativeHpMarker(token, hp);
+            return;
+        }
+
+        if (hp <= -10) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            setNegativeHpMarker(token, -10);
+            applyMarker(token, DEAD_MARKER);
+        }
+    }
+
     function applyDamage(token, amount) {
         var current = floatVal(token.get('bar1_value'), 0);
         var newVal = current - amount;
         token.set('bar1_value', newVal);
+        updateHpMarkers(token);
         return {
             oldValue: current,
             newValue: newVal
@@ -311,13 +398,6 @@ on('ready', function () {
         if (diff <= 30) return 'disengage-retreat';
         if (diff <= 50) return 'flee in panic';
         return 'surrender';
-    }
-
-    function percentColor(value) {
-        var v = clamp(intVal(value, 0), 0, 100);
-        var red = Math.round(255 * (100 - v) / 100);
-        var green = Math.round(255 * v / 100);
-        return 'rgb(' + red + ',' + green + ',80)';
     }
 
     function lineForResult(name, detail, status, colorOverride) {
@@ -423,9 +503,7 @@ on('ready', function () {
     }
 
     function showMoraleHelp(playerid) {
-        return !!(state[SCRIPT] &&
-                  state[SCRIPT].showMoraleHelpByPlayer &&
-                  state[SCRIPT].showMoraleHelpByPlayer[playerid]);
+        return !!(state[SCRIPT] && state[SCRIPT].showMoraleHelpByPlayer && state[SCRIPT].showMoraleHelpByPlayer[playerid]);
     }
 
     function setMoraleHelp(playerid, value) {
@@ -472,6 +550,7 @@ on('ready', function () {
             + button('DEX', CMD + ' --do ability --atype dexterity --mod ?{Roll Modifier|0}')
             + button('CON', CMD + ' --do ability --atype constitution --mod ?{Roll Modifier|0}')
             + button('CHA', CMD + ' --do ability --atype charisma --mod ?{Roll Modifier|0}')
+            + button('3d6 Ability Check', CMD + ' --do ability3d6 --ability ?{Attribute|strength|dexterity|constitution|intelligence|wisdom|charisma} --dice ?{Task Difficulty|Easy (3d6),3|Hard (4d6),4|Very Hard (5d6),5|Extremely Hard (6d6),6|Impossible (10d6),10}')
             + button('Pick Pockets', CMD + ' --do thief --ttype pickpockets --hd ?{HD of target|1} --mod ?{Percent Modifier|0}')
             + button('Open Locks', CMD + ' --do thief --ttype openlocks --mod ?{Percent Modifier|0}')
             + button('Find/Remove Traps', CMD + ' --do thief --ttype findtraps --mod ?{Percent Modifier|0}')
@@ -533,7 +612,7 @@ on('ready', function () {
         var body = '';
 
         if (!targets.length) {
-            sendToGM(wrap('Apply Damage', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Apply Damage', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
@@ -556,7 +635,7 @@ on('ready', function () {
         var body = '';
 
         if (!targets.length) {
-            sendToGM(wrap('Add Marker', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Add Marker', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
@@ -579,7 +658,7 @@ on('ready', function () {
         var body = '';
 
         if (!targets.length) {
-            sendToGM(wrap('Remove All Markers', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Remove All Markers', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
@@ -598,7 +677,7 @@ on('ready', function () {
         var body = '';
 
         if (!targets.length) {
-            sendToGM(wrap('Morale', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Morale', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
@@ -627,7 +706,7 @@ on('ready', function () {
         var body = '';
 
         if (!targets.length) {
-            sendToGM(wrap('Surprise', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Surprise', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
@@ -664,42 +743,40 @@ on('ready', function () {
         });
 
         if (!targets.length) {
-            sendToGM(wrap(label, '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
             var target = intVal(getAttr(t.cid, stype), 20);
             var raw = randomInteger(20);
-            var total = raw + mod;
-            var success = total >= target;
+            var final = raw + mod;
+            var success = final >= target;
             var dmg = success ? dmgSuccess : dmgFail;
-            var hpText = '';
-            var condText = '';
+            var hp = null;
+            var detail = 'Roll: <b>' + raw + '</b>';
 
-            if (dmg !== 0) {
-                var hp = applyDamage(t.token, dmg);
-                hpText = ' | Damage: <b>' + dmg + '</b> | HP/Bar1: <b>' + hp.oldValue + ' → ' + hp.newValue + '</b>';
+            if (mod) {
+                detail += ' + mod ' + mod + ' = <b>' + final + '</b>';
             }
 
-            if (!success) {
+            detail += ' vs save target <b>' + target + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            if (dmg > 0) {
+                hp = applyDamage(t.token, dmg);
+                detail += ' | Damage: <b>' + dmg + '</b> | HP/Bar1: <b>' + hp.oldValue + ' → ' + hp.newValue + '</b>';
+            }
+
+            if (!success && cond !== 'none') {
                 applyMarker(t.token, cond);
-                if (cond && cond !== 'none') condText = ' | Condition applied';
+                detail += ' | Condition applied.';
             }
 
-            body += lineForResult(
-                t.name,
-                'Save: <b>' + raw + '</b>'
-                    + (mod ? ' + ' + mod + ' = <b>' + total + '</b>' : ' = <b>' + total + '</b>')
-                    + ' vs target <b>' + target + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>'
-                    + condText
-                    + hpText,
-                success ? 'success' : 'failure'
-            );
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
         });
 
         body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
-        sendToGM(wrap('Saving Throws — ' + label, body));
+        sendToGM(wrap(label, body));
     }
 
     function doAbility(msg, args) {
@@ -707,63 +784,108 @@ on('ready', function () {
         var atype = args.atype || '';
         var targets = getTargetsForMsg(msg);
         var body = '';
-        var label = atype.toUpperCase();
+        var label = atype;
 
         ABILITY_TYPES.forEach(function (a) {
             if (a.key === atype) label = a.label;
         });
 
         if (!targets.length) {
-            sendToGM(wrap(label, '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
-            var score = intVal(getAttr(t.cid, atype), 0);
+            var target = intVal(getAttr(t.cid, atype), 0);
             var raw = randomInteger(20);
-            var total = raw + mod;
-            var success = total <= score;
+            var final = raw + mod;
+            var success = final <= target;
+            var detail = 'Roll: <b>' + raw + '</b>';
 
-            body += lineForResult(
-                t.name,
-                'Ability Check: <b>' + raw + '</b>'
-                    + (mod ? ' + ' + mod + ' = <b>' + total + '</b>' : ' = <b>' + total + '</b>')
-                    + ' vs <b>' + score + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
-                success ? 'success' : 'failure'
-            );
+            if (mod) {
+                detail += ' + mod ' + mod + ' = <b>' + final + '</b>';
+            }
+
+            detail += ' vs ability <b>' + target + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
         });
 
         body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
-        sendToGM(wrap('Ability Checks — ' + label, body));
+        sendToGM(wrap(label + ' Checks', body));
+    }
+
+    function doAbility3d6(msg, args) {
+        var ability = (args.ability || 'strength').toLowerCase();
+        var diceCount = intVal(args.dice, 3);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+        var abilityLabels = {
+            strength: 'Strength',
+            dexterity: 'Dexterity',
+            constitution: 'Constitution',
+            intelligence: 'Intelligence',
+            wisdom: 'Wisdom',
+            charisma: 'Charisma'
+        };
+
+        if (!targets.length) {
+            sendToGM(wrap('3d6 Ability Check', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var score = intVal(getAttr(t.cid, ability), 0);
+            var rolls = [];
+            var total = 0;
+            var i, die, success, rollText, detail;
+
+            for (i = 0; i < diceCount; i++) {
+                die = randomInteger(6);
+                rolls.push(die);
+                total += die;
+            }
+
+            success = total <= score;
+            rollText = rolls.join(' + ');
+
+            detail = ''
+                + 'Ability: <b>' + h(abilityLabels[ability] || ability) + '</b>'
+                + ' | Score: <b>' + score + '</b>'
+                + ' | Roll: <b>' + rollText + ' = ' + total + '</b>'
+                + ' | Need ≤ <b>' + score + '</b>'
+                + ' — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('3d6 Ability Check', body));
     }
 
     function doReaction(msg, args) {
         var mod = intVal(args.mod, 0);
         var targets = getTargetsForMsg(msg);
         var body = '';
+        var roll = clamp(randomInteger(100) + mod, 1, 100);
+        var text = reactionText(roll);
 
         if (!targets.length) {
-            sendToGM(wrap('Reaction', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Reaction', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
-            var raw = randomInteger(100);
-            var total = clamp(raw + mod, 1, 100);
-            var color = percentColor(total);
-
             body += lineForResult(
                 t.name,
-                'Reaction: <b>' + raw + '%</b>'
-                    + (mod ? ' + ' + mod + ' = <b>' + total + '%</b>' : ' = <b>' + total + '%</b>')
-                    + ' — ' + h(reactionText(total)),
-                'success',
-                color
+                'Reaction roll: <b>' + roll + '</b> — ' + h(text),
+                'noticed',
+                '#b7d7ff'
             );
         });
 
         body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
-        sendToGM(wrap('Reaction Rolls', body));
+        sendToGM(wrap('Reaction Roll', body));
     }
 
     function doThief(msg, args) {
@@ -779,41 +901,31 @@ on('ready', function () {
         });
 
         if (!targets.length) {
-            sendToGM(wrap(label, '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
             var base = intVal(getAttr(t.cid, ttype), 0);
-            var adjusted, noticedThreshold, roll, status, text;
-
-            roll = randomInteger(100);
+            var finalChance = base + mod;
+            var roll = randomInteger(100);
+            var success;
 
             if (ttype === 'pickpockets') {
-                adjusted = base + mod - (Math.max(hd - 3, 0) * 5);
-                noticedThreshold = adjusted + 21;
-
-                if (roll <= adjusted) {
-                    status = 'success';
-                    text = 'Pick Pockets: <b>' + roll + '%</b> vs <b>' + adjusted + '%</b> (base ' + base + ', mod ' + mod + ', target HD ' + hd + ') — <b>SUCCESS</b>';
-                } else if (roll >= noticedThreshold) {
-                    status = 'noticed';
-                    text = 'Pick Pockets: <b>' + roll + '%</b> vs <b>' + adjusted + '%</b> (noticed at <b>' + noticedThreshold + '%</b>) — <b>FAILURE, NOTICED</b>';
-                } else {
-                    status = 'failure';
-                    text = 'Pick Pockets: <b>' + roll + '%</b> vs <b>' + adjusted + '%</b> (noticed at <b>' + noticedThreshold + '%</b>) — <b>FAILURE, NOT NOTICED</b>';
-                }
-            } else {
-                adjusted = base + mod;
-                status = (roll <= adjusted) ? 'success' : 'failure';
-                text = label + ': <b>' + roll + '%</b> vs <b>' + adjusted + '%</b> (base ' + base + ', mod ' + mod + ') — <b>' + ((roll <= adjusted) ? 'SUCCESS' : 'FAILURE') + '</b>';
+                finalChance += (hd * -5);
             }
 
-            body += lineForResult(t.name, text, status);
+            success = roll <= finalChance;
+
+            body += lineForResult(
+                t.name,
+                'Chance: <b>' + finalChance + '%</b> (base ' + base + (mod ? ', mod ' + mod : '') + (ttype === 'pickpockets' ? ', HD adj ' + (hd * -5) : '') + ') | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                success ? 'success' : 'failure'
+            );
         });
 
         body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
-        sendToGM(wrap('Thief Skills — ' + label, body));
+        sendToGM(wrap(label, body));
     }
 
     function doHearNonThief(msg, args) {
@@ -821,21 +933,21 @@ on('ready', function () {
         var mod = intVal(args.mod, 0);
         var targets = getTargetsForMsg(msg);
         var body = '';
-        var raceData = hearNoiseRaceData(raceId);
-        var baseChance = raceData.chance;
-        var targetChance = clamp(baseChance + mod, 0, 100);
+        var race = hearNoiseRaceData(raceId);
 
         if (!targets.length) {
-            sendToGM(wrap('Hear Noise (Non-Thief)', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Hear Noise (Non-Thief)', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
+            var chance = clamp(race.chance + mod, 1, 100);
             var roll = randomInteger(100);
-            var success = roll <= targetChance;
+            var success = roll <= chance;
+
             body += lineForResult(
                 t.name,
-                'Hear Noise (Non-Thief): <b>' + roll + '%</b> vs <b>' + targetChance + '%</b> (race ' + h(raceData.label) + ' ' + baseChance + '%, mod ' + mod + ') — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                race.label + ' chance: <b>' + chance + '%</b> | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
                 success ? 'success' : 'failure'
             );
         });
@@ -849,21 +961,21 @@ on('ready', function () {
         var mod = intVal(args.mod, 0);
         var targets = getTargetsForMsg(msg);
         var body = '';
-        var baseChance = 15;
-        var targetChance = clamp(baseChance + armorPen + mod, 0, 100);
-        var armorLabel = moveSilentlyArmorLabel(armorPen);
 
         if (!targets.length) {
-            sendToGM(wrap('Move Silently (Non-Thief)', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Move Silently (Non-Thief)', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
+            var baseChance = 15;
+            var chance = clamp(baseChance + armorPen + mod, 0, 100);
             var roll = randomInteger(100);
-            var success = roll <= targetChance;
+            var success = roll <= chance;
+
             body += lineForResult(
                 t.name,
-                'Move Silently (Non-Thief): <b>' + roll + '%</b> vs <b>' + targetChance + '%</b> (base 15%, armor ' + h(armorLabel) + ' ' + armorPen + ', mod ' + mod + ') — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                'Chance: <b>' + chance + '%</b> (base ' + baseChance + '%, armor ' + moveSilentlyArmorLabel(armorPen) + ', armor adj ' + armorPen + ', mod ' + mod + ') | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
                 success ? 'success' : 'failure'
             );
         });
@@ -874,27 +986,26 @@ on('ready', function () {
 
     function doDetectInvisible(msg, args) {
         var hd = intVal(args.hd, 7);
-        var mod = intVal(args.mod, 0);
         var intBand = intVal(args.iband, 3);
+        var mod = intVal(args.mod, 0);
         var targets = getTargetsForMsg(msg);
         var body = '';
-        var bandLabel = intBandLabel(intBand);
 
         if (!targets.length) {
-            sendToGM(wrap('Detect Invisible Creatures', '<div>No valid linked tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            sendToGM(wrap('Detect Invisible Creatures', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
             return;
         }
 
         targets.forEach(function (t) {
-            var baseChance = detectInvisibleChance(hd, intBand);
-            var finalChance = clamp(baseChance + mod, 0, 100);
+            var base = detectInvisibleChance(hd, intBand);
+            var chance = clamp(base + mod, 0, 100);
             var roll = randomInteger(100);
-            var success = roll <= finalChance;
+            var noticed = chance > 0 && roll <= chance;
 
             body += lineForResult(
                 t.name,
-                'Detect Invisible: <b>' + roll + '%</b> vs <b>' + finalChance + '%</b> (HD ' + hd + '+, INT band ' + bandLabel + ', base ' + baseChance + '%, mod ' + mod + ') — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
-                success ? 'success' : 'failure'
+                'Chance: <b>' + chance + '%</b> (base ' + base + ', modifier ' + mod + ') | Roll: <b>' + roll + '</b> — <b>' + (noticed ? 'NOTICED' : 'NOT NOTICED') + '</b>',
+                noticed ? 'noticed' : 'failure'
             );
         });
 
@@ -923,18 +1034,14 @@ on('ready', function () {
 
         if (!args.menu && !args.do) {
             if (!getStoredSelection(msg.playerid).length) {
-                sendToGM(wrap('GroupCheck 1E', '<div>Select at least one linked token and run <b>!groupcheck</b>.</div>'));
+                sendToGM(wrap('GroupCheck 1E', '<div>Select at least one token and run <b>!groupcheck</b>.</div>'));
                 return;
             }
             mainMenu(msg.playerid);
             return;
         }
 
-        if (args.menu === 'help') {
-            helpMenu(msg.playerid);
-            return;
-        }
-
+        if (args.menu === 'help') { helpMenu(msg.playerid); return; }
         if (args.do === 'damage') { doDamage(msg, args); return; }
         if (args.do === 'addmarker') { doAddMarker(msg, args); return; }
         if (args.do === 'clearmarkers') { doClearMarkers(msg); return; }
@@ -942,6 +1049,7 @@ on('ready', function () {
         if (args.do === 'surprise') { doSurprise(msg, args); return; }
         if (args.do === 'save') { doSave(msg, args); return; }
         if (args.do === 'ability') { doAbility(msg, args); return; }
+        if (args.do === 'ability3d6') { doAbility3d6(msg, args); return; }
         if (args.do === 'reaction') { doReaction(msg, args); return; }
         if (args.do === 'thief') { doThief(msg, args); return; }
         if (args.do === 'hearnonthief') { doHearNonThief(msg, args); return; }

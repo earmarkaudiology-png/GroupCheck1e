@@ -1,0 +1,2141 @@
+on('ready', function () {
+    'use strict';
+
+    var SCRIPT = 'GroupCheck1E';
+    var CMD = '!groupcheck';
+
+    state[SCRIPT] = state[SCRIPT] || {};
+    state[SCRIPT].selections = state[SCRIPT].selections || {};
+    state[SCRIPT].showMoraleHelpByPlayer = state[SCRIPT].showMoraleHelpByPlayer || {};
+    state[SCRIPT].showDiseaseModsByPlayer = state[SCRIPT].showDiseaseModsByPlayer || {};
+    state[SCRIPT].intoxicationByToken = state[SCRIPT].intoxicationByToken || {};
+
+    var SAVE_TYPES = [
+        { key: 'saveparalysispoisondeath', label: 'Paralysis / Poison / Death' },
+        { key: 'savepetrificationpolymorph', label: 'Petrification / Polymorph' },
+        { key: 'saverodsstaveswands', label: 'Rods / Staves / Wands' },
+        { key: 'savebreathweapons', label: 'Breath Weapons' },
+        { key: 'savespells', label: 'Spells' }
+    ];
+
+    var ABILITY_TYPES = [
+        { key: 'strength', label: 'STR' },
+        { key: 'intelligence', label: 'INT' },
+        { key: 'wisdom', label: 'WIS' },
+        { key: 'dexterity', label: 'DEX' },
+        { key: 'constitution', label: 'CON' },
+        { key: 'charisma', label: 'CHA' }
+    ];
+
+    var THIEF_TYPES = [
+        { key: 'pickpockets', label: 'Pick Pockets' },
+        { key: 'openlocks', label: 'Open Locks' },
+        { key: 'findtraps', label: 'Find/Remove Traps' },
+        { key: 'movequietly', label: 'Move Silently' },
+        { key: 'hideinshadows', label: 'Hide in Shadows' },
+        { key: 'hearnoise', label: 'Hear Noise' }
+    ];
+
+    var BASE_CONDITION_MARKERS = [
+        { label: 'None', value: 'none' },
+        { label: 'slow', value: 'slow::236500' },
+        { label: 'poison', value: 'poison::268169' },
+        { label: 'Advantage', value: 'Advantage::269968' },
+        { label: 'Blinded', value: 'Blinded::269969' },
+        { label: 'Prone', value: 'Prone::269970' },
+        { label: 'Disadvantage', value: 'Disadvantage::269973' },
+        { label: 'frightened', value: 'frightened::269974' },
+        { label: 'Stunned', value: 'Stunned::269975' },
+        { label: 'torch', value: 'torch::269977' },
+        { label: 'Target', value: 'Target::269979' },
+        { label: 'restrained', value: 'restrained::269980' },
+        { label: 'Deafened', value: 'Deafened::269983' },
+        { label: 'grapple', value: 'grapple::269985' },
+        { label: 'Bless', value: 'Bless::269996' },
+        { label: 'On fire', value: 'On_fire::270064' },
+        { label: 'Sleep', value: 'Sleep::270066' },
+        { label: 'Invisible', value: 'Invisible::270069' },
+        { label: 'Mage Armor', value: 'Mage_Armor::270073' },
+        { label: 'Unconcious', value: 'Unconcious::270399' },
+        { label: 'Stealth', value: 'Stealth::270401' },
+        { label: 'Bloodied', value: 'Bloodied::270413' },
+        { label: 'Web', value: 'Web::270448' },
+        { label: 'Concentration', value: 'Concentration::270499' },
+        { label: 'Aid', value: 'Aid::270681' },
+        { label: 'Hideous Laughter', value: 'Hideous_Laughter::270702' },
+        { label: 'Ray of Frost', value: 'Ray_of_Frost::270834' },
+        { label: 'turned', value: 'turned::271035' },
+        { label: 'Bane', value: 'Bane::271042' },
+        { label: 'exhaustion 1', value: 'exhaustion_1::271062' },
+        { label: 'exhaustion 2', value: 'exhaustion_2::271063' },
+        { label: 'exhaustion 3', value: 'exhaustion_3::271065' },
+        { label: 'exhaustion 4', value: 'exhaustion_4::271066' },
+        { label: 'exhaustion 5', value: 'exhaustion_5::271084' },
+        { label: 'confusion', value: 'confusion::271393' },
+        { label: 'enemies abound', value: 'enemies_abound::271397' },
+        { label: 'rage', value: 'rage::271436' },
+        { label: 'charmed', value: 'charmed::271453' },
+        { label: 'Blade Ward', value: 'Blade_Ward::272369' },
+        { label: 'Disguise Self', value: 'Disguise_Self::272373' },
+        { label: 'Hiding', value: 'Hiding::272374' },
+        { label: 'Flamethrower', value: 'Flamethrower::5367336' },
+        { label: 'Force Balista', value: 'Force_Balista::5367337' },
+        { label: '20', value: '20::5582245' },
+        { label: '60', value: '60::5582251' },
+        { label: '70', value: '70::5582252' },
+        { label: '80', value: '80::5582253' },
+        { label: '90', value: '90::5582254' },
+        { label: '100', value: '100::5582255' },
+        { label: 'Hold Action', value: 'Hold_Action::5771669' },
+        { label: 'Half Cover', value: 'Half_Cover::5771708' },
+        { label: 'Three Quarters Cover', value: 'Three_Quarters_Cover::5771709' },
+        { label: 'Prone2', value: 'Prone2::5771710' },
+        { label: 'Full Cover', value: 'Full_Cover::5771711' },
+        { label: 'Plus Five', value: 'Plus_Five::5771712' }
+    ];
+
+    var MOVE_SILENTLY_NT_ARMOR = [
+        { label: 'No armor or leather', penalty: 0 },
+        { label: 'Padded or studded leather', penalty: -1 },
+        { label: 'Hide or ring mail', penalty: -2 },
+        { label: 'Scale, chain, or banded', penalty: -3 },
+        { label: 'Plate or field plate', penalty: -4 },
+        { label: 'Full plate', penalty: -5 }
+    ];
+
+    var BLOODIED_MARKER = 'Bloodied::270413';
+    var UNCONSCIOUS_MARKER = 'Unconcious::270399';
+    var DEAD_MARKER = 'dead';
+    var INTOX_YELLOW_MARKER = 'yellow';
+    var INTOX_ORANGE_MARKER = 'orange';
+    var INTOX_RED_MARKER = 'red';
+    var NEGATIVE_HP_MARKERS = {
+        '-1': '-1::7577794',
+        '-2': '-2::7577795',
+        '-3': '-3::7577796',
+        '-4': '-4::7577797',
+        '-5': '-5::7577798',
+        '-6': '-6::7577799',
+        '-7': '-7::7577800',
+        '-8': '-8::7577801',
+        '-9': '-9::7577802',
+        '-10': '-10::7577803'
+    };
+
+    function h(s) {
+        if (s === undefined || s === null) { return ''; }
+        s = String(s);
+        s = s.replace(/&/g, '&amp;');
+        s = s.replace(/</g, '&lt;');
+        s = s.replace(/>/g, '&gt;');
+        s = s.replace(/"/g, '&quot;');
+        return s;
+    }
+
+    function intVal(v, d) {
+        var n = parseInt(v, 10);
+        return isNaN(n) ? (d || 0) : n;
+    }
+
+    function floatVal(v, d) {
+        var n = parseFloat(v);
+        return isNaN(n) ? (d || 0) : n;
+    }
+
+    function clamp(n, min, max) {
+        return Math.max(min, Math.min(max, n));
+    }
+
+    function sendToGM(html) {
+        sendChat(SCRIPT, '/w gm ' + html);
+    }
+
+    function wrap(title, body) {
+        return ''
+            + '<div style="background:#000;border:2px solid #666;border-radius:8px;padding:10px;color:#fff;max-width:1100px;">'
+            + '<div style="font-weight:bold;font-size:16px;margin-bottom:8px;border-bottom:1px solid #444;padding-bottom:4px;">' + h(title) + '</div>'
+            + body
+            + '</div>';
+    }
+
+    function button(label, command, textColor) {
+        var color = textColor || '#fff';
+        return '<a style="display:inline-block;background:#111;color:' + color + ';border:1px solid #777;border-radius:4px;padding:4px 8px;margin:2px 4px 2px 0;text-decoration:none;font-weight:bold;" href="' + h(command) + '">' + h(label) + '</a>';
+    }
+
+    function small(text) {
+        return '<div style="color:#bbb;font-size:11px;margin-top:4px;">' + h(text) + '</div>';
+    }
+
+    function getAttr(cid, name) {
+        if (!cid) { return ''; }
+        var a = findObjs({
+            _type: 'attribute',
+            _characterid: cid,
+            name: name
+        }, { caseInsensitive: true })[0];
+        return a ? a.get('current') : '';
+    }
+
+    function getCharName(cid, token) {
+        var ch;
+        if (cid) {
+            ch = getObj('character', cid);
+            if (ch) {
+                return ch.get('name') || (token && token.get('name')) || 'Unnamed';
+            }
+        }
+        return (token && token.get('name')) || 'Unnamed';
+    }
+
+    function parseArgs(content) {
+        var args = {};
+        var parts = content.split(/\s+--/);
+        var i, seg, space, key, val;
+
+        for (i = 1; i < parts.length; i++) {
+            seg = parts[i];
+            space = seg.indexOf(' ');
+            if (space === -1) {
+                key = seg.trim();
+                val = '1';
+            } else {
+                key = seg.substring(0, space).trim();
+                val = seg.substring(space + 1).trim();
+            }
+            args[key] = val;
+        }
+        return args;
+    }
+
+    function selectedIdsFromMsg(msg) {
+        var ids = [];
+        var seen = {};
+        var i, sel;
+
+        if (!msg.selected) { return ids; }
+
+        for (i = 0; i < msg.selected.length; i++) {
+            sel = msg.selected[i];
+            if (sel._type === 'graphic' && !seen[sel._id]) {
+                seen[sel._id] = true;
+                ids.push(sel._id);
+            }
+        }
+        return ids;
+    }
+
+    function storeSelection(playerid, ids) {
+        state[SCRIPT].selections[playerid] = ids.slice();
+    }
+
+    function getStoredSelection(playerid) {
+        return (state[SCRIPT].selections[playerid] || []).slice();
+    }
+
+    function getTargets(ids) {
+        var out = [];
+        var seen = {};
+        var i, token, cid, key;
+
+        for (i = 0; i < ids.length; i++) {
+            token = getObj('graphic', ids[i]);
+            if (!token) { continue; }
+
+            cid = token.get('represents') || '';
+            key = token.id;
+
+            if (seen[key]) { continue; }
+            seen[key] = true;
+
+            out.push({
+                token: token,
+                cid: cid,
+                name: getCharName(cid, token)
+            });
+        }
+
+        return out;
+    }
+
+    function getAvailableMarkers() {
+        var markers = BASE_CONDITION_MARKERS.slice();
+        var seen = {};
+        var raw, parsed, i, m;
+
+        markers.forEach(function (mk) {
+            seen[mk.value] = true;
+        });
+
+        try {
+            raw = Campaign().get('token_markers');
+            parsed = JSON.parse(raw || '[]');
+
+            for (i = 0; i < parsed.length; i++) {
+                m = parsed[i];
+                if (m && m.tag && !seen[m.tag]) {
+                    markers.push({
+                        label: m.name || m.tag,
+                        value: m.tag
+                    });
+                    seen[m.tag] = true;
+                }
+            }
+        } catch (e) {
+            log(SCRIPT + ' marker load warning: ' + e);
+        }
+
+        return markers;
+    }
+
+    function markerQuery(queryLabel) {
+        var markers = getAvailableMarkers();
+        var parts = [];
+        markers.forEach(function (m) {
+            parts.push(m.label + ',' + m.value);
+        });
+        return '?{' + queryLabel + '|' + parts.join('|') + '}';
+    }
+
+    function getMarkerArray(token) {
+        var current = token.get('statusmarkers') || '';
+        return current ? current.split(',').filter(Boolean) : [];
+    }
+
+    function setMarkerArray(token, arr) {
+        token.set('statusmarkers', arr.join(','));
+    }
+
+    function applyMarker(token, marker) {
+        var arr;
+        if (!marker || marker === 'none') { return; }
+        arr = getMarkerArray(token);
+        if (arr.indexOf(marker) === -1) {
+            arr.push(marker);
+            setMarkerArray(token, arr);
+        }
+    }
+
+    function removeMarker(token, marker) {
+        var arr = getMarkerArray(token).filter(function (m) {
+            return m !== marker;
+        });
+        setMarkerArray(token, arr);
+    }
+
+    function clearMarkers(token) {
+        token.set('statusmarkers', '');
+    }
+
+    function removeAllNegativeHpMarkers(token) {
+        var negativeValues = Object.keys(NEGATIVE_HP_MARKERS).map(function (k) {
+            return NEGATIVE_HP_MARKERS[k];
+        });
+        var arr = getMarkerArray(token).filter(function (m) {
+            return negativeValues.indexOf(m) === -1;
+        });
+        setMarkerArray(token, arr);
+    }
+
+    function clearIntoxicationMarkers(token) {
+        removeMarker(token, INTOX_YELLOW_MARKER);
+        removeMarker(token, INTOX_ORANGE_MARKER);
+        removeMarker(token, INTOX_RED_MARKER);
+    }
+
+    function updateIntoxicationMarker(token, level) {
+        level = intVal(level, 0);
+        clearIntoxicationMarkers(token);
+        if (level === 1) {
+            applyMarker(token, INTOX_YELLOW_MARKER);
+        } else if (level === 2) {
+            applyMarker(token, INTOX_ORANGE_MARKER);
+        } else if (level >= 3) {
+            applyMarker(token, INTOX_RED_MARKER);
+        }
+    }
+
+    function setNegativeHpMarker(token, hp) {
+        removeAllNegativeHpMarkers(token);
+        var marker = NEGATIVE_HP_MARKERS[String(hp)];
+        if (marker) {
+            applyMarker(token, marker);
+        }
+    }
+
+    function updateHpMarkers(token) {
+        var hp = intVal(token.get('bar1_value'), 0);
+
+        removeMarker(token, BLOODIED_MARKER);
+        removeMarker(token, UNCONSCIOUS_MARKER);
+        removeMarker(token, DEAD_MARKER);
+        removeAllNegativeHpMarkers(token);
+
+        if (hp > 0) {
+            return;
+        }
+
+        if (hp === 0) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            return;
+        }
+
+        if (hp < 0 && hp > -10) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            setNegativeHpMarker(token, hp);
+            return;
+        }
+
+        if (hp <= -10) {
+            applyMarker(token, BLOODIED_MARKER);
+            applyMarker(token, UNCONSCIOUS_MARKER);
+            setNegativeHpMarker(token, -10);
+            applyMarker(token, DEAD_MARKER);
+        }
+    }
+
+    function applyDamage(token, amount) {
+        var current = floatVal(token.get('bar1_value'), 0);
+        var newVal = current - amount;
+        token.set('bar1_value', newVal);
+        updateHpMarkers(token);
+        return {
+            oldValue: current,
+            newValue: newVal
+        };
+    }
+
+    function reactionText(roll) {
+        if (roll >= 1 && roll <= 5) return 'Very hostile. Monsters will attack.';
+        if (roll >= 6 && roll <= 25) return 'Hostile. Monsters probably attack unless obviously outmatched.';
+        if (roll >= 26 && roll <= 45) return 'Unfavorable. Monsters probably attack.';
+        if (roll >= 46 && roll <= 55) return 'Neutral response. Monsters do not attack unless obviously going to win.';
+        if (roll >= 56 && roll <= 75) return 'Favorable. Monsters wait to hear an offer.';
+        if (roll >= 76 && roll <= 95) return 'Friendly. Probably offers assistance if profitable.';
+        return 'Very friendly. May offer assistance even if not profitable.';
+    }
+
+    function reactionColor(roll) {
+        if (roll <= 5) return '#ff6b6b';
+        if (roll <= 25) return '#ff8a6b';
+        if (roll <= 45) return '#ffd166';
+        if (roll <= 55) return '#d9d9d9';
+        if (roll <= 75) return '#b7e36f';
+        if (roll <= 95) return '#6fdc6f';
+        return '#40c463';
+    }
+
+
+    function moraleFailureText(diff) {
+        if (diff <= 15) return 'fall back, fighting';
+        if (diff <= 30) return 'disengage-retreat';
+        if (diff <= 50) return 'flee in panic';
+        return 'surrender';
+    }
+
+    function lineForResult(name, detail, status, colorOverride) {
+        var color = colorOverride || '#ddd';
+        if (!colorOverride) {
+            if (status === 'success') color = '#8f8';
+            if (status === 'failure') color = '#f88';
+            if (status === 'noticed') color = '#ffb366';
+        }
+
+        return ''
+            + '<div style="padding:6px 0;border-top:1px solid #222;">'
+            + '<div style="font-weight:bold;color:#fff;">' + h(name) + '</div>'
+            + '<div style="color:' + color + ';">' + detail + '</div>'
+            + '</div>';
+    }
+
+    function hearNoiseRaceQuery() {
+        return '?{Listener Race|Dwarf,1|Elf,2|Gnome,3|Half-Elf,4|Halfling,5|Half-Orc,6|Human,7}';
+    }
+
+    function hearNoiseRaceData(raceId) {
+        switch (intVal(raceId, 0)) {
+            case 1: return { label: 'Dwarf', chance: 10 };
+            case 2: return { label: 'Elf', chance: 15 };
+            case 3: return { label: 'Gnome', chance: 20 };
+            case 4: return { label: 'Half-Elf', chance: 10 };
+            case 5: return { label: 'Halfling', chance: 15 };
+            case 6: return { label: 'Half-Orc', chance: 15 };
+            case 7: return { label: 'Human', chance: 10 };
+            default: return { label: 'Human', chance: 10 };
+        }
+    }
+
+    function hearNoiseRaceChanceFromCharacter(cid) {
+        var race = (getAttr(cid, 'race') || '').toLowerCase().trim();
+
+        if (race.indexOf('gnome') !== -1) return { label: 'Gnome', chance: 20 };
+        if (race.indexOf('halfling') !== -1) return { label: 'Halfling', chance: 15 };
+        if (race.indexOf('half-elf') !== -1 || race.indexOf('half elf') !== -1) return { label: 'Half-Elf', chance: 10 };
+        if (race.indexOf('half-orc') !== -1 || race.indexOf('half orc') !== -1) return { label: 'Half-Orc', chance: 15 };
+        if (race.indexOf('dwarf') !== -1) return { label: 'Dwarf', chance: 10 };
+        if (race.indexOf('elf') !== -1) return { label: 'Elf', chance: 15 };
+        if (race.indexOf('human') !== -1) return { label: 'Human', chance: 10 };
+
+        return { label: race ? race : 'Unknown', chance: 10 };
+    }
+
+    function isElfRace(race) {
+        race = (race || '').toLowerCase();
+        return race.indexOf('elf') !== -1 && race.indexOf('half-elf') === -1 && race.indexOf('half elf') === -1;
+    }
+
+    function isHalfElfRace(race) {
+        race = (race || '').toLowerCase();
+        return race.indexOf('half-elf') !== -1 || race.indexOf('half elf') !== -1;
+    }
+
+    function moveSilentlyArmorQuery() {
+        return '?{Armor Type'
+            + '|No armor or leather,0'
+            + '|Padded or studded leather,-1'
+            + '|Hide or ring mail,-2'
+            + '|Scale, chain, or banded,-3'
+            + '|Plate or field plate,-4'
+            + '|Full plate,-5'
+            + '}';
+    }
+
+    function moveSilentlyArmorLabel(penalty) {
+        var i;
+        for (i = 0; i < MOVE_SILENTLY_NT_ARMOR.length; i++) {
+            if (MOVE_SILENTLY_NT_ARMOR[i].penalty === intVal(penalty, -999)) {
+                return MOVE_SILENTLY_NT_ARMOR[i].label;
+            }
+        }
+        return 'Custom';
+    }
+
+    function intBandLabel(intBand) {
+        switch (intVal(intBand, 0)) {
+            case 0: return '0-1';
+            case 1: return '2-4';
+            case 2: return '5-7';
+            case 3: return '8-10';
+            case 4: return '11-12';
+            case 5: return '13-14';
+            case 6: return '15-16';
+            case 7: return '17+';
+            default: return '8-10';
+        }
+    }
+
+    function detectInvisibleChance(hd, intBand) {
+        var row = intVal(hd, 0);
+        var band = intBandLabel(intBand);
+
+        if (row < 7) return 0;
+        if (row > 15) row = 15;
+
+        var table = {
+            7:  { '0-1':0,  '2-4':0,  '5-7':0,  '8-10':0,  '11-12':0,  '13-14':0,  '15-16':0,  '17+':5  },
+            8:  { '0-1':0,  '2-4':0,  '5-7':0,  '8-10':0,  '11-12':0,  '13-14':0,  '15-16':5,  '17+':10 },
+            9:  { '0-1':0,  '2-4':0,  '5-7':0,  '8-10':0,  '11-12':0,  '13-14':5,  '15-16':10, '17+':15 },
+            10: { '0-1':0,  '2-4':0,  '5-7':0,  '8-10':0,  '11-12':5,  '13-14':15, '15-16':20, '17+':25 },
+            11: { '0-1':0,  '2-4':0,  '5-7':0,  '8-10':5,  '11-12':15, '13-14':25, '15-16':30, '17+':35 },
+            12: { '0-1':0,  '2-4':0,  '5-7':5,  '8-10':15, '11-12':25, '13-14':35, '15-16':40, '17+':45 },
+            13: { '0-1':0,  '2-4':5,  '5-7':10, '8-10':25, '11-12':35, '13-14':45, '15-16':50, '17+':55 },
+            14: { '0-1':5,  '2-4':10, '5-7':15, '8-10':35, '11-12':45, '13-14':55, '15-16':65, '17+':75 },
+            15: { '0-1':10, '2-4':15, '5-7':20, '8-10':45, '11-12':55, '13-14':65, '15-16':80, '17+':95 }
+        };
+
+        return table[row][band] || 0;
+    }
+
+    function detectInvisibleIntQuery() {
+        return '?{Monster Intelligence'
+            + '|0-1 Non-intelligent/animal,0'
+            + '|2-4 Semi-intelligent,1'
+            + '|5-7 Low,2'
+            + '|8-10 Average,3'
+            + '|11-12 Very,4'
+            + '|13-14 Highly,5'
+            + '|15-16 Exceptional,6'
+            + '|17+ Genius or higher,7'
+            + '}';
+    }
+
+    function showMoraleHelp(playerid) {
+        return !!(state[SCRIPT] && state[SCRIPT].showMoraleHelpByPlayer && state[SCRIPT].showMoraleHelpByPlayer[playerid]);
+    }
+
+    function setMoraleHelp(playerid, value) {
+        state[SCRIPT].showMoraleHelpByPlayer = state[SCRIPT].showMoraleHelpByPlayer || {};
+        state[SCRIPT].showMoraleHelpByPlayer[playerid] = !!value;
+    }
+
+    function showDiseaseMods(playerid) {
+        return !!(state[SCRIPT] &&
+                  state[SCRIPT].showDiseaseModsByPlayer &&
+                  state[SCRIPT].showDiseaseModsByPlayer[playerid]);
+    }
+
+    function setDiseaseMods(playerid, value) {
+        state[SCRIPT].showDiseaseModsByPlayer = state[SCRIPT].showDiseaseModsByPlayer || {};
+        state[SCRIPT].showDiseaseModsByPlayer[playerid] = !!value;
+    }
+
+    function mainMenu(playerid) {
+        var moraleHelp = '';
+        var moraleHelpButton = showMoraleHelp(playerid)
+            ? button('Hide Morale Modifiers', CMD + ' --do togglemoralehelp --show 0', '#ddd')
+            : button('Show Morale Modifiers', CMD + ' --do togglemoralehelp --show 1', '#ddd');
+
+        if (showMoraleHelp(playerid)) {
+            moraleHelp = ''
+                + '<div style="margin-top:8px;padding:8px;border:1px solid #333;background:#111;line-height:1.35;">'
+                + '<div style="font-weight:bold;color:#fff;margin-bottom:4px;">Morale modifier reference</div>'
+                + '<div style="color:#bbb;">Per friend killed, surrendered or fled: -5%</div>'
+                + '<div style="color:#bbb;">Own side experienced 1/4 casualties: -5%</div>'
+                + '<div style="color:#bbb;">Numerical inferiority: -10%</div>'
+                + '<div style="color:#bbb;">Own side taken 1/2 casualties: -15%</div>'
+                + '<div style="color:#bbb;">Own side greatly outnumbered (2:1 or more): -20%</div>'
+                + '<div style="color:#bbb;">Own leader defeated or downed: -25%</div>'
+                + '<div style="color:#bbb;">Per foe killed, surrendered or fled: +5%</div>'
+                + '<div style="color:#bbb;">Own side inflicted 1/4 casualties: +5%</div>'
+                + '<div style="color:#bbb;">Numerical superiority: +10%</div>'
+                + '<div style="color:#bbb;">Own side has inflicted 1/2 casualties on the other side: +15%</div>'
+                + '</div>';
+        }
+
+        var body = ''
+            + button('Apply Damage', CMD + ' --do damage --amt ?{Damage to Apply|0}', '#ff9b9b')
+            + button('Morale', CMD + ' --do morale --mod ?{Morale modifier|0}', '#ff9b9b')
+            + button('Surprise', CMD + ' --do surprise --snum ?{Surprise number|2}', '#ff9b9b')
+            + button('Reaction', CMD + ' --do reaction --mod ?{Reaction Modifier|0}', '#ff9b9b')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Quick Visual', CMD + ' --do quickvisualsecret', '#ffd27f')
+            + button('Quick Room Check', CMD + ' --do quickroomsecret', '#ffd27f')
+            + button('Thorough Search', CMD + ' --do thoroughsecret', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Paralysis / Poison / Death', CMD + ' --do save --stype saveparalysispoisondeath --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + button('Petrification / Polymorph', CMD + ' --do save --stype savepetrificationpolymorph --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + button('Rods / Staves / Wands', CMD + ' --do save --stype saverodsstaveswands --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + button('Breath Weapons', CMD + ' --do save --stype savebreathweapons --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + button('Spells', CMD + ' --do save --stype savespells --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('STR', CMD + ' --do ability --atype strength --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('INT', CMD + ' --do ability --atype intelligence --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('WIS', CMD + ' --do ability --atype wisdom --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('DEX', CMD + ' --do ability --atype dexterity --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('CON', CMD + ' --do ability --atype constitution --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('CHA', CMD + ' --do ability --atype charisma --mod ?{Roll Modifier|0}', '#b7ffb0')
+            + button('3d6 Ability Check', CMD + ' --do ability3d6 --ability ?{Attribute|strength|dexterity|constitution|intelligence|wisdom|charisma} --dice ?{Task Difficulty|Easy (3d6),3|Hard (4d6),4|Very Hard (5d6),5|Extremely Hard (6d6),6|Impossible (10d6),10}', '#d6ff8f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Pick Pockets', CMD + ' --do thief --ttype pickpockets --hd ?{HD of target|1} --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + button('Open Locks', CMD + ' --do thief --ttype openlocks --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + button('Find/Remove Traps', CMD + ' --do thief --ttype findtraps --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + button('Move Silently', CMD + ' --do thief --ttype movequietly --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + button('Hide in Shadows', CMD + ' --do thief --ttype hideinshadows --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + button('Hear Noise', CMD + ' --do thief --ttype hearnoise --mod ?{Percent Modifier|0}', '#ffb7ff')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Hear Noise (Non-Thief)', CMD + ' --do hearnonthief --mod ?{Modifier|0}', '#ffd27f')
+            + button('Move Silently (Non-Thief)', CMD + ' --do movenonthief --armorpen ' + moveSilentlyArmorQuery() + ' --mod ?{Modifier|0}', '#ffd27f')
+            + button('Less Common Checks', CMD + ' --menu lesscommon', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Add Marker', CMD + ' --do addmarker --marker ' + markerQuery('Marker to Add'), '#ddd')
+            + button('Remove All Markers', CMD + ' --do clearmarkers', '#ddd')
+            + moraleHelpButton
+            + button('Help / Setup', CMD + ' --menu help', '#ddd')
+            + moraleHelp
+            + small('Run !groupcheck after changing token selection. Buttons use the latest selection you captured.');
+
+        sendToGM(wrap('GroupCheck 1E', body));
+    }
+
+    function helpMenu(playerid) {
+        var markerList = '';
+        var markers = getAvailableMarkers();
+
+        markers.forEach(function (m) {
+            if (m.value !== 'none') {
+                markerList += '<div><b>' + h(m.label) + '</b> = <span style="color:#bbb;">' + h(m.value) + '</span></div>';
+            }
+        });
+
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div style="margin-bottom:8px;"><b>Use</b>: select tokens, run <b>!groupcheck</b>, then click buttons.</div>'
+            + '<div style="margin-bottom:8px;"><b>Selection rule</b>: buttons act on the most recent selection you captured with <b>!groupcheck</b>.</div>'
+            + '<div style="margin-bottom:8px;"><b>Add Marker</b>: applies one chosen marker to all selected tokens.</div>'
+            + '<div style="margin-bottom:8px;"><b>Remove All Markers</b>: clears the full marker string from selected tokens.</div>'
+            + '<div style="margin-bottom:8px;"><b>Custom marker note</b>: dropdown also reads campaign custom token markers from Roll20 when available.</div>'
+            + '<div style="margin-bottom:8px;"><b>Current available markers:</b></div>'
+            + '<div style="max-height:260px;overflow:auto;border:1px solid #333;padding:8px;background:#111;">' + markerList + '</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+
+        sendToGM(wrap('Help / Setup', body));
+    }
+
+    function lessCommonMenu(playerid) {
+        var diseaseToggle = showDiseaseMods(playerid)
+            ? button('Hide Disease Modifiers', CMD + ' --do togglediseasemods --show 0', '#ddd')
+            : button('Show Disease Modifiers', CMD + ' --do togglediseasemods --show 1', '#ddd');
+        var diseaseMods = '';
+
+        if (showDiseaseMods(playerid)) {
+            diseaseMods = ''
+                + '<div style="margin-top:8px;padding:8px;border:1px solid #333;background:#111;line-height:1.35;">'
+                + '<div style="font-weight:bold;color:#fff;margin-bottom:4px;">General Disease modifiers</div>'
+                + '<div style="color:#bbb;">Base chance: 2%</div>'
+                + '<div style="color:#bbb;">currently diseased or infested with parasites +1%</div>'
+                + '<div style="color:#bbb;">crowding (city, encampment, shipboard) +1%</div>'
+                + '<div style="color:#bbb;">filth (city, encampment, siege) +1%</div>'
+                + '<div style="color:#bbb;">character is old +2%</div>'
+                + '<div style="color:#bbb;">environment (marsh, swamp, jungle) +2%</div>'
+                + '<div style="color:#bbb;">hot and moist climate +2%</div>'
+                + '<div style="color:#bbb;">character is venerable +5%</div>'
+                + '<div style="color:#bbb;">exposure to carrier of communicable disease +10%</div>'
+                + '<div style="color:#bbb;">cool weather or climate -1%</div>'
+                + '<div style="color:#bbb;">cold weather, high mountains -2%</div>'
+                + '<div style="color:#bbb;">shipboard after being at sea 2 weeks -2%</div>'
+                + '<div style="font-weight:bold;color:#fff;margin:8px 0 4px 0;">Parasitic Infestation modifiers</div>'
+                + '<div style="color:#bbb;">Base chance: 3%</div>'
+                + '<div style="color:#bbb;">filth (garbage, manure, sewage, etc.) +1%</div>'
+                + '<div style="color:#bbb;">improperly cooked meat +2%</div>'
+                + '<div style="color:#bbb;">polluted water +5%</div>'
+                + '<div style="color:#bbb;">swamp or jungle environment +5%</div>'
+                + '<div style="color:#bbb;">cool weather or climate, desert climate -1%</div>'
+                + '<div style="color:#bbb;">cold weather, high mountains, cool desert climate -1%</div>'
+                + '<div style="font-weight:bold;color:#fff;margin:8px 0 4px 0;">Occurrence / Severity adjustments</div>'
+                + '<div style="color:#bbb;">Constitution under 3: +2</div>'
+                + '<div style="color:#bbb;">Constitution 3-5: +1</div>'
+                + '<div style="color:#bbb;">Constitution 10-12: -1</div>'
+                + '<div style="color:#bbb;">Constitution 13-15: -2</div>'
+                + '<div style="color:#bbb;">Constitution 16-17: -3</div>'
+                + '<div style="color:#bbb;">Constitution 18: -4</div>'
+                + '<div style="color:#bbb;">chronic disease or disorder +1</div>'
+                + '<div style="color:#bbb;">severe parasitic infestation +1</div>'
+                + '<div style="color:#bbb;">under 25% of normal hit point total +1</div>'
+                + '</div>';
+        }
+
+        var body = ''
+            + button('Drink Potion Delay', CMD + ' --do potiondelay', '#ffd27f')
+            + button('Apply Oil Delay', CMD + ' --do oildelay', '#ffd27f')
+            + button('Potion Miscibility', CMD + ' --do potionmiscibility', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Acid Flask Hit', CMD + ' --do acidflaskhit', '#ffd27f')
+            + button('Holy Water Hit', CMD + ' --do holywaterhit', '#ffd27f')
+            + button('Flaming Oil Hit', CMD + ' --do flamingoilhit', '#ffd27f')
+            + button('Poison Flask Hit', CMD + ' --do poisonflaskhit --ptype ?{Poison Type|A|B|C|D|E} --save ?{Save Result|Saved|Failed}', '#ffd27f')
+            + button('Acid Flask Miss', CMD + ' --do acidflaskmiss', '#ffd27f')
+            + button('Holy Water Miss', CMD + ' --do holywatermiss', '#ffd27f')
+            + button('Flaming Oil Miss', CMD + ' --do flamingoilmiss', '#ffd27f')
+            + button('Poison Flask Miss', CMD + ' --do poisonflaskmiss', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Alcohol CON Check', CMD + ' --do alcoholcheck', '#ffd27f')
+            + button('Alcohol Recovery', CMD + ' --do alcoholrecovery', '#ffd27f')
+            + button('Reset Intoxication', CMD + ' --do alcoholreset', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('General Disease', CMD + ' --do generaldisease --chance ?{General Disease Chance Modifier|0} --osmod ?{Occurrence/Severity Extra Modifier|0}', '#ffd27f')
+            + button('Parasitic', CMD + ' --do parasitic --chance ?{Parasitic Chance Modifier|0} --osmod ?{Occurrence/Severity Extra Modifier|0}', '#ffd27f')
+            + diseaseToggle
+            + diseaseMods
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Dwarf Mining Skills', CMD + ' --do dwarfmining', '#ffd27f')
+            + button('Gnome Mining Skills', CMD + ' --do gnomemining', '#ffd27f')
+            + button('Detect Invisible Creatures', CMD + ' --do detectinvis --hd ?{Invisible creature HD|7} --iband ' + detectInvisibleIntQuery() + ' --mod ?{Modifier|0}', '#ffd27f')
+            + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
+            + button('Insanity', CMD + ' --do insanity', '#ffd27f')
+            + '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+
+        sendToGM(wrap('Less Common Checks', body));
+    }
+
+        function doPotionDelay() {
+        var d4 = randomInteger(4);
+        var total = d4 + 1;
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div>Opening and consuming the potion takes <b>1 segment</b>.</div>'
+            + '<div>Effect delay roll: <b>1d4+1</b> = <b>' + total + ' segments</b>.</div>'
+            + '<div style="margin-top:6px;">The potion takes full effect in <b>' + total + ' segments</b> after being consumed.</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">'
+            + button('Back', CMD + ' --menu lesscommon', '#ddd')
+            + '</div>';
+
+        sendToGM(wrap('Drink Potion Delay', body));
+    }
+
+    function doOilDelay() {
+        var d4 = randomInteger(4);
+        var total = d4 + 1;
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div>Opening and decanting the oil takes <b>1 segment</b>.</div>'
+            + '<div>Application delay roll: <b>1d4+1</b> = <b>' + total + ' segments</b>.</div>'
+            + '<div style="margin-top:6px;">The oil is fully applied in <b>' + total + ' segments</b> after opening.</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">'
+            + button('Back', CMD + ' --menu lesscommon', '#ddd')
+            + '</div>';
+
+        sendToGM(wrap('Apply Oil Delay', body));
+    }
+
+    function doPotionMiscibility() {
+        var roll = randomInteger(100);
+        var result = '';
+        var detail = '';
+        var rollText = (roll === 100 ? '00' : ('0' + roll).slice(-2));
+
+        if (roll === 1) {
+            result = 'EXPLOSION!';
+            detail = 'Internal damage is 6–60 hp. If mixed externally, all within a 10-foot radius take 4–24 hp, no save.';
+        } else if (roll >= 2 && roll <= 3) {
+            result = 'Lethal poison';
+            detail = 'Imbiber dies. If externally mixed, a 10-foot poison gas cloud results; all within must save vs. poison or die.';
+        } else if (roll >= 4 && roll <= 8) {
+            result = 'Mild poison';
+            detail = 'Nausea and loss of 1 point each of Strength and Dexterity for 5–20 rounds, no save. One potion is cancelled; the other is at half strength and duration. Determine randomly.';
+        } else if (roll >= 9 && roll <= 15) {
+            result = 'Immiscible';
+            detail = 'Both potions are totally destroyed.';
+        } else if (roll >= 16 && roll <= 25) {
+            result = 'Immiscible';
+            detail = 'One potion is cancelled, but the other remains normal. Determine randomly.';
+        } else if (roll >= 26 && roll <= 35) {
+            result = 'Immiscible';
+            detail = 'Both potions function at half normal efficacy.';
+        } else if (roll >= 36 && roll <= 90) {
+            result = 'Miscible';
+            detail = 'Potions work normally unless their effects are contradictory, in which case they cancel each other.';
+        } else if (roll >= 91 && roll <= 99) {
+            result = 'Compatible';
+            detail = 'One randomly determined potion functions at 150% normal efficacy. The DM decides whether this affects duration, effect, or both.';
+        } else {
+            result = 'DISCOVERY!';
+            detail = 'A special formula results. Only one potion functions, but its effects become permanent. Harmful side effects are possible.';
+        }
+
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div>Miscibility roll: <b>' + rollText + '</b></div>'
+            + '<div style="margin-top:6px;"><b>' + h(result) + '</b></div>'
+            + '<div style="margin-top:6px;">' + h(detail) + '</div>'
+            + '<div style="margin-top:8px;color:#bbb;">Roll secretly whenever two potions are mixed, or when a second potion is consumed while another is still in effect.</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">'
+            + button('Back', CMD + ' --menu lesscommon', '#ddd')
+            + '</div>';
+
+        sendToGM(wrap('Potion Miscibility', body));
+    }
+
+
+    function flaskBreakRoll() {
+        var roll = randomInteger(20);
+        var survives = roll >= 19;
+        return {
+            roll: roll,
+            target: 19,
+            survives: survives,
+            breaks: !survives,
+            note: 'Crystal or Vial vs. Blow, Crushing: 19 on 1d20 to survive.'
+        };
+    }
+
+    function flaskBreakHtml(br) {
+        return ''
+            + '<div>Breakage roll: <b>' + br.roll + '</b> on 1d20 vs survival target <b>' + br.target + '</b>.</div>'
+            + '<div>Result: <b>' + (br.breaks ? 'FLASK BREAKS' : 'FLASK DOES NOT BREAK') + '</b>.</div>'
+            + '<div style="color:#bbb;">' + h(br.note) + '</div>';
+    }
+
+    function scatterDirectionText(dir) {
+        switch (dir) {
+            case 1: return 'long right';
+            case 2: return 'right';
+            case 3: return 'short right';
+            case 4: return 'short (before)';
+            case 5: return 'short left';
+            case 6: return 'left';
+            case 7: return 'long left';
+            case 8: return 'long (over)';
+            default: return 'unknown';
+        }
+    }
+
+    function rollFlaskScatter() {
+        return {
+            distance: randomInteger(6),
+            directionRoll: randomInteger(8)
+        };
+    }
+
+    function doAcidFlaskHit() {
+        var br = flaskBreakRoll();
+        var direct = randomInteger(4) + randomInteger(4);
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div><b>Acid Flask Hit</b></div>'
+            + '<div style="margin-top:6px;">' + flaskBreakHtml(br) + '</div>';
+
+        if (br.breaks) {
+            body += ''
+                + '<div style="margin-top:6px;">Direct hit damage: <b>' + direct + ' hp</b> (2-8).</div>'
+                + '<div>Splash effect: <b>1 hp</b> to creatures in the 1-foot diameter effect area if splashed.</div>';
+        } else {
+            body += '<div style="margin-top:6px;">No acid effect. The flask survives the impact.</div>';
+        }
+
+        body += ''
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap('Acid Flask Hit', body));
+    }
+
+    function doHolyWaterHit() {
+        var br = flaskBreakRoll();
+        var direct = randomInteger(6) + 1;
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div><b>Holy Water Hit</b></div>'
+            + '<div style="margin-top:6px;">' + flaskBreakHtml(br) + '</div>';
+
+        if (br.breaks) {
+            body += ''
+                + '<div style="margin-top:6px;">Direct hit damage: <b>' + direct + ' hp</b> (2-7).</div>'
+                + '<div>Splash effect: <b>2 hp</b> to affected creatures in the 1-foot diameter effect area if splashed.</div>'
+                + '<div style="margin-top:6px;color:#bbb;">Holy water affects undead and creatures from the lower planes.</div>';
+        } else {
+            body += '<div style="margin-top:6px;">No holy water effect. The flask survives the impact.</div>';
+        }
+
+        body += ''
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap('Holy Water Hit', body));
+    }
+
+    function doFlamingOilHit() {
+        var br = flaskBreakRoll();
+        var firstRound = randomInteger(6) + randomInteger(6);
+        var secondRound = randomInteger(6);
+        var splashSegments = randomInteger(3);
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div><b>Flaming Oil Hit</b></div>'
+            + '<div style="margin-top:6px;">' + flaskBreakHtml(br) + '</div>';
+
+        if (br.breaks) {
+            body += ''
+                + '<div style="margin-top:6px;">Direct hit first round: <b>' + firstRound + ' hp</b> (2-12).</div>'
+                + '<div>Direct hit second round: <b>' + secondRound + ' hp</b> (1-6).</div>'
+                + '<div>Splash effect area: <b>3-foot diameter</b>.</div>'
+                + '<div>Splash burn duration: <b>' + splashSegments + ' segment(s)</b> at <b>1 hp per segment</b>.</div>';
+        } else {
+            body += '<div style="margin-top:6px;">No flaming oil effect. The flask survives the impact.</div>';
+        }
+
+        body += ''
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap('Flaming Oil Hit', body));
+    }
+
+    function poisonTypeData(ptype) {
+        var p = String(ptype || 'A').toUpperCase();
+        switch (p) {
+            case 'B':
+                return { type: 'B', onset: '2-5 rounds', saveDmg: '15 h.p.', failDmg: '30 h.p.' };
+            case 'C':
+                return { type: 'C', onset: '1-2 rounds', saveDmg: '20 h.p.', failDmg: '40 h.p.' };
+            case 'D':
+                return { type: 'D', onset: '1 segment', saveDmg: '25 h.p.', failDmg: 'death' };
+            case 'E':
+                return { type: 'E', onset: '1-4 turns', saveDmg: '30 h.p.', failDmg: 'death' };
+            case 'A':
+            default:
+                return { type: 'A', onset: '2-8 rounds', saveDmg: '10 h.p.', failDmg: '20 h.p.' };
+        }
+    }
+
+    function doPoisonFlaskHit(ptype, saveResult) {
+        var br = flaskBreakRoll();
+        var info = poisonTypeData(ptype);
+        var saveText = (String(saveResult || 'save').toLowerCase() === 'fail') ? 'Failed / No Save' : 'Saved';
+        var finalEffect = (saveText === 'Saved') ? info.saveDmg : info.failDmg;
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div><b>Poison Flask Hit</b></div>'
+            + '<div style="margin-top:6px;">' + flaskBreakHtml(br) + '</div>';
+
+        if (br.breaks) {
+            body += ''
+                + '<div style="margin-top:8px;"><b>Ingestive Poison ' + h(info.type) + '</b></div>'
+                + '<div>Onset Time: <b>' + h(info.onset) + '</b></div>'
+                + '<div>Damage If Save: <b>' + h(info.saveDmg) + '</b></div>'
+                + '<div>Damage If No Save: <b>' + h(info.failDmg) + '</b></div>'
+                + '<div style="margin-top:6px;">Save Result: <b>' + h(saveText) + '</b></div>'
+                + '<div>Applied Result: <b>' + h(finalEffect) + '</b></div>';
+        } else {
+            body += '<div style="margin-top:6px;">No poison effect. The flask survives the impact.</div>';
+        }
+
+        body += ''
+            + '<div style="margin-top:6px;color:#bbb;">For special contact or respiratory delivery cases, adjudicate separately.</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap('Poison Flask Hit', body));
+    }
+
+    function doFlaskMiss(title, detail) {
+        var scatter = rollFlaskScatter();
+        var br = flaskBreakRoll();
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div><b>' + h(title) + '</b></div>'
+            + '<div style="margin-top:6px;">Miss distance: <b>' + scatter.distance + ' feet</b> off target.</div>'
+            + '<div>Direction: <b>' + h(scatterDirectionText(scatter.directionRoll)) + '</b> (d8 = ' + scatter.directionRoll + ')</div>'
+            + '<div style="margin-top:6px;">' + flaskBreakHtml(br) + '</div>';
+
+        if (br.breaks) {
+            body += '<div style="margin-top:6px;">' + h(detail) + '</div>';
+        } else {
+            body += '<div style="margin-top:6px;">No contents effect at the impact point. The flask survives the landing.</div>';
+        }
+
+        body += ''
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap(title, body));
+    }
+
+
+    function getIntoxicationLevel(tokenId) {
+        return intVal(state[SCRIPT].intoxicationByToken[tokenId], 0);
+    }
+
+    function setIntoxicationLevel(tokenId, level) {
+        state[SCRIPT].intoxicationByToken[tokenId] = clamp(intVal(level, 0), 0, 4);
+    }
+
+    function intoxicationLabel(level) {
+        switch (intVal(level, 0)) {
+            case 1: return 'Slight';
+            case 2: return 'Moderate';
+            case 3: return 'Great';
+            case 4: return 'Comatose';
+            default: return 'None';
+        }
+    }
+
+    function intoxicationEffects(level) {
+        switch (intVal(level, 0)) {
+            case 1:
+                return {
+                    bravery: '+1', morale: '+5%', intelligence: '–1', wisdom: '–1', dexterity: '0', charisma: '0', attackDice: '0', hitPoints: '+0'
+                };
+            case 2:
+                return {
+                    bravery: '+2', morale: '+10%', intelligence: '–3', wisdom: '–4', dexterity: '–2', charisma: '–1', attackDice: '–1', hitPoints: '+1'
+                };
+            case 3:
+                return {
+                    bravery: '+4', morale: '+15%', intelligence: '–6', wisdom: '–7', dexterity: '–5', charisma: '–4', attackDice: '–5', hitPoints: '+3'
+                };
+            case 4:
+                return {
+                    bravery: 'Comatose', morale: 'Comatose', intelligence: 'Comatose', wisdom: 'Comatose', dexterity: 'Comatose', charisma: 'Comatose', attackDice: 'Comatose', hitPoints: 'Sleeping 7–10 hours'
+                };
+            default:
+                return null;
+        }
+    }
+
+    function intoxicationEffectsHtml(level) {
+        var fx = intoxicationEffects(level);
+        if (!fx) {
+            return '<div style="margin-top:4px;color:#bbb;">No intoxication effects currently apply.</div>';
+        }
+        if (intVal(level, 0) === 4) {
+            return '<div style="margin-top:4px;color:#ffb366;"><b>Comatose:</b> the character sleeps for 7–10 hours.</div>';
+        }
+        return ''
+            + '<div style="margin-top:4px;color:#bbb;">'
+            + 'Bravery <b>' + fx.bravery + '</b> | '
+            + 'Morale <b>' + fx.morale + '</b> | '
+            + 'INT <b>' + fx.intelligence + '</b> | '
+            + 'WIS <b>' + fx.wisdom + '</b> | '
+            + 'DEX <b>' + fx.dexterity + '</b> | '
+            + 'CHA <b>' + fx.charisma + '</b> | '
+            + 'Attack Dice <b>' + fx.attackDice + '</b> | '
+            + 'HP <b>' + fx.hitPoints + '</b>'
+            + '</div>';
+    }
+
+    function intoxicationRecoveryRange(level, stimulant) {
+        var baseMin = 0, baseMax = 0, mult = 1;
+        switch (intVal(level, 0)) {
+            case 1: baseMin = 1; baseMax = 2; break;
+            case 2: baseMin = 2; baseMax = 4; break;
+            case 3: baseMin = 4; baseMax = 6; break;
+            case 4: baseMin = 7; baseMax = 10; break;
+            default: return null;
+        }
+        if (stimulant === 'mild') {
+            if (level === 1) { mult = 0.80; }
+            else if (level === 2) { mult = 0.85; }
+            else if (level === 3) { mult = 0.90; }
+            else { mult = 0.95; }
+        } else if (stimulant === 'strong') {
+            if (level === 1) { mult = 0.50; }
+            else if (level === 2) { mult = 0.55; }
+            else if (level === 3) { mult = 0.55; }
+            else { mult = 0.60; }
+        }
+        return {
+            min: (baseMin * mult).toFixed(2),
+            max: (baseMax * mult).toFixed(2),
+            mult: mult
+        };
+    }
+
+    function doAlcoholCheck(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Alcohol CON Check', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var con = intVal(getAttr(t.cid, 'constitution'), 0);
+            var roll = randomInteger(20);
+            var success = roll <= con;
+            var oldLevel = getIntoxicationLevel(t.token.id);
+            var newLevel = oldLevel;
+            var detail = 'CON check: <b>' + roll + '</b> vs <b>' + con + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            if (!success) {
+                newLevel = clamp(oldLevel + 1, 0, 4);
+                setIntoxicationLevel(t.token.id, newLevel);
+                updateIntoxicationMarker(t.token, newLevel);
+                detail += ' | Intoxication: <b>' + intoxicationLabel(oldLevel) + ' → ' + intoxicationLabel(newLevel) + '</b>';
+            } else {
+                updateIntoxicationMarker(t.token, oldLevel);
+                detail += ' | Intoxication remains <b>' + intoxicationLabel(oldLevel) + '</b>';
+            }
+
+            detail += intoxicationEffectsHtml(success ? oldLevel : newLevel);
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
+        });
+
+        body += '<div style="margin-top:8px;color:#bbb;">First failed check causes Slight intoxication. Later failed checks advance to Moderate, Great, then Comatose.</div>';
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Alcohol CON Check', body));
+    }
+
+    function doAlcoholRecovery(msg, args) {
+        var stimulant = (args.stim || 'none').toLowerCase();
+        var stimLabel = 'No stimulant';
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Alcohol Recovery', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var level = getIntoxicationLevel(t.token.id);
+            var range = intoxicationRecoveryRange(level, stimulant);
+            updateIntoxicationMarker(t.token, level);
+            var detail;
+
+            if (!range) {
+                detail = 'Current intoxication: <b>None</b>.';
+                body += lineForResult(t.name, detail, 'success');
+                return;
+            }
+
+            detail = 'Current intoxication: <b>' + intoxicationLabel(level) + '</b> | ' + stimLabel + ' | Recovery time: <b>' + range.min + ' to ' + range.max + ' hours</b>';
+            detail += intoxicationEffectsHtml(level);
+            body += lineForResult(t.name, detail, 'noticed', '#b7d7ff');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Alcohol Recovery', body));
+    }
+
+    function doAlcoholReset(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Reset Intoxication', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            setIntoxicationLevel(t.token.id, 0);
+            updateIntoxicationMarker(t.token, 0);
+            body += lineForResult(t.name, 'Intoxication reset to <b>None</b>.', 'success');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Reset Intoxication', body));
+    }
+
+
+    function diseaseConAdjust(con) {
+        con = intVal(con, 0);
+        if (con < 3) { return 2; }
+        if (con <= 5) { return 1; }
+        if (con >= 18) { return -4; }
+        if (con >= 16) { return -3; }
+        if (con >= 13) { return -2; }
+        if (con >= 10) { return -1; }
+        return 0;
+    }
+
+    function diseaseArea(score) {
+        if (score >= 1 && score <= 3) return { area: 'blood/blood forming organs', acuteMax: 3, mildMax: 2, severeMax: 5 };
+        if (score === 4) return { area: 'bones', acuteMax: 1, mildMax: 1, severeMax: 3 };
+        if (score === 5) return { area: 'brain/nervous system', acuteMax: 6, mildMax: 2, severeMax: 5 };
+        if (score >= 6 && score <= 7) return { area: 'cardiovascular-renal', acuteMax: 3, mildMax: 2, severeMax: 4 };
+        if (score >= 8 && score <= 9) return { area: 'connective tissue', acuteMax: 1, mildMax: 1, severeMax: 3 };
+        if (score >= 10 && score <= 12) return { area: 'ears', acuteMax: 7, mildMax: 6, severeMax: 7 };
+        if (score >= 13 && score <= 18) return { area: 'eyes', acuteMax: 7, mildMax: 5, severeMax: 7 };
+        if (score >= 19 && score <= 40) return { area: 'gastro-intestinal', acuteMax: 6, mildMax: 5, severeMax: 7 };
+        if (score >= 41 && score <= 42) return { area: 'generative organs', acuteMax: 2, mildMax: 3, severeMax: 7 };
+        if (score >= 43 && score <= 48) return { area: 'joints', acuteMax: 4, mildMax: 6, severeMax: 8 };
+        if (score >= 49 && score <= 50) return { area: 'mucous membranes', acuteMax: 7, mildMax: 6, severeMax: 8 };
+        if (score >= 51 && score <= 52) return { area: 'muscles', acuteMax: 5, mildMax: 5, severeMax: 7 };
+        if (score >= 53 && score <= 65) return { area: 'nose-throat', acuteMax: 6, mildMax: 6, severeMax: 8 };
+        if (score >= 66 && score <= 85) return { area: 'respiratory system', acuteMax: 6, mildMax: 5, severeMax: 7 };
+        if (score >= 86 && score <= 96) return { area: 'skin', acuteMax: 5, mildMax: 5, severeMax: 7 };
+        return { area: 'urinary system', acuteMax: 6, mildMax: 5, severeMax: 7 };
+    }
+
+    function diseaseEffectText(area, severity) {
+        var common = {
+            Mild: 'Mild: no strenuous activity, rest required. Normal period 1-3 weeks.',
+            Severe: 'Severe: hit points reduced to 50% of normal and total disability for 1-2 weeks, followed by 1-2 weeks in mild recovery.',
+            Terminal: 'Terminal: death or loss of body part/function unless a longer body-area period is noted.'
+        };
+        var specifics = {
+            'blood/blood forming organs': 'Blood afflictions cause loss of 1 point each of Strength and Constitution per week until cured. Terminal cases take 1-12 weeks.',
+            'bones': 'Bone afflictions are handled much like blood problems. Chronic and terminal cases follow the same general handling.',
+            'brain/nervous system': 'Brain problems cause loss of 1 point each of Intelligence and Dexterity per occurrence until cured. Terminal affliction takes 1-12 hours for death to occur.',
+            'cardiovascular-renal': 'Treat like blood problems, except terminal cases last only 1-12 days.',
+            'connective tissue': 'Connective tissue disease permanently removes 1 point each of Strength, Dexterity, Constitution, and Charisma for each month of affliction. Terminal cases continue until Constitution is 0.',
+            'ears': 'Terminal ear afflictions result in hearing loss in one ear.',
+            'eyes': 'Terminal eye afflictions result in blindness in one or both eyes (50/50 chance).',
+            'gastro-intestinal': 'Chronic gastro-intestinal disease causes loss of 1 point each of Strength and Constitution per occurrence until cured; severe attacks make such loss permanent. Terminal cases take 1-12 weeks.',
+            'generative organs': 'Generative organ disorders mainly risk spread of infection. Terminal cases take 1-12 months.',
+            'joints': 'Chronic joint disorders cause loss of 1 point of Dexterity, with each severe attack making such loss permanent.',
+            'mucous membranes': 'Chronic mucous membrane problems cause loss of 1 point of Constitution, each severe attack making such loss permanent.',
+            'muscles': 'Chronic muscle disorders cause loss of 1 point each of Strength and Dexterity; severe attacks have a 25% chance to make such loss permanent. Terminal cases take 1-12 months.',
+            'nose-throat': 'Chronic nose-throat afflictions have a 10% chance to cause a 1 point Constitution loss each time a severe attack occurs.',
+            'respiratory system': 'Chronic severe respiratory disorders are 10% likely to cause loss of 1 point each of Strength and Constitution (check separately). Terminal cases take 1-12 months.',
+            'skin': 'Severe skin afflictions are 10% likely to cause permanent loss of 1 point of Charisma. Chronic mild attacks are 10% likely, chronic severe attacks 25% likely. Terminal cases take 1-12 weeks.',
+            'urinary system': 'Chronic severe urinary disorders are 20% likely to cause loss of 1 point each of Dexterity and Constitution per occurrence. Terminal cases take 1-12 weeks.'
+        };
+        return common[severity] + ' ' + (specifics[area] || '');
+    }
+
+    
+    function parasiticArea(score) {
+        if (score >= 1 && score <= 10) return { area: 'cardiovascular system', mildMax: 2, severeMax: 5, terminalMax: 8 };
+        if (score >= 11 && score <= 35) return { area: 'intestines', mildMax: 2, severeMax: 7, terminalMax: 8 };
+        if (score >= 36 && score <= 40) return { area: 'muscles', mildMax: 1, severeMax: 3, terminalMax: 8 };
+        if (score >= 41 && score <= 45) return { area: 'respiratory system', mildMax: 1, severeMax: 4, terminalMax: 8 };
+        if (score >= 46 && score <= 75) return { area: 'skin/hair', mildMax: 7, severeMax: 8, terminalMax: 0 };
+        return { area: 'stomach', mildMax: 2, severeMax: 7, terminalMax: 8 };
+    }
+
+    function parasiticEffectText(area, severity) {
+        var common = {
+            Mild: 'Mild: no strenuous activity, rest required. Normal period 1-3 weeks.',
+            Severe: 'Severe: hit points reduced to 50% of normal and total disability for 1-2 weeks, followed by 1-2 weeks in mild recovery.',
+            Terminal: 'Terminal: death or loss of body part/function unless a longer body-area period is noted.'
+        };
+        var specifics = {
+            'cardiovascular system': 'Parasitic infestation affecting the cardiovascular system should be treated like other serious internal infestations, with severity determining disability or fatality.',
+            'intestines': 'Intestinal parasites weaken the character over time and can become life-threatening if severe or terminal.',
+            'muscles': 'Muscle parasites impair movement and strength; severe cases can become disabling.',
+            'respiratory system': 'Respiratory parasites interfere with breathing and can become fatal in terminal cases.',
+            'skin/hair': 'Skin or hair parasites are usually not terminal, but severe cases can be debilitating and difficult to remove.',
+            'stomach': 'Stomach parasites cause ongoing internal illness and can become life-threatening in terminal cases.'
+        };
+        return common[severity] + ' ' + specifics[area];
+    }
+
+    function doParasitic(msg, args) {
+        var chanceMod = intVal(args.chance, 0);
+        var osMod = intVal(args.osmod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Parasitic Infestation', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var con = intVal(getAttr(t.cid, 'constitution'), 0);
+            var conAdj = diseaseConAdjust(con);
+            var chance = clamp(3 + chanceMod, 0, 100);
+            var chanceRoll = randomInteger(100);
+            var parasiteRoll, sevRaw, sevAdj, row, severity, detail;
+
+            if (chanceRoll > chance) {
+                detail = 'Parasitic chance: <b>' + chance + '%</b> (base 3%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — <b>NO INFESTATION CONTRACTED</b>.';
+                body += lineForResult(t.name, detail, 'success');
+                return;
+            }
+
+            parasiteRoll = randomInteger(100);
+            sevRaw = randomInteger(8);
+            sevAdj = sevRaw + conAdj + osMod;
+
+            if (sevAdj <= 0) {
+                detail = 'Parasitic chance: <b>' + chance + '%</b> (base 3%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — infestation indicated, but adjusted severity is 0 or less, so <b>NO INFESTATION CONTRACTED</b>. Severity <b>' + sevRaw + '</b> becomes <b>' + sevAdj + '</b>.';
+                body += lineForResult(t.name, detail, 'success');
+                return;
+            }
+
+            row = parasiticArea(parasiteRoll);
+            if (sevAdj <= row.mildMax) severity = 'Mild';
+            else if (row.terminalMax && sevAdj <= row.severeMax) severity = 'Severe';
+            else if (!row.terminalMax || sevAdj <= row.severeMax) severity = 'Severe';
+            else severity = 'Terminal';
+
+            detail = 'Parasitic chance: <b>' + chance + '%</b> (base 3%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — <b>INFESTATION CONTRACTED</b>'
+                + ' | Table <b>' + parasiteRoll + '</b>: <b>' + h(row.area) + '</b>'
+                + ' | Severity <b>' + sevRaw + '</b> + CON adj ' + (conAdj >= 0 ? '+' + conAdj : conAdj) + ' + extra ' + (osMod >= 0 ? '+' + osMod : osMod) + ' = <b>' + sevAdj + '</b> → <b>' + severity + '</b>'
+                + '<div style="margin-top:6px;color:#ddd;">' + h(parasiticEffectText(row.area, severity)) + '</div>';
+            body += lineForResult(t.name, detail, 'failure', '#ffd27f');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Parasitic Infestation', body));
+    }
+
+function doGeneralDisease(msg, args) {
+        var chanceMod = intVal(args.chance, 0);
+        var osMod = intVal(args.osmod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('General Disease', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var con = intVal(getAttr(t.cid, 'constitution'), 0);
+            var conAdj = diseaseConAdjust(con);
+            var chance = clamp(2 + chanceMod, 0, 100);
+            var chanceRoll = randomInteger(100);
+            var diseaseRoll, occRaw, sevRaw, occAdj, sevAdj, row, occurrence, severity, detail;
+
+            if (chanceRoll > chance) {
+                detail = 'Disease chance: <b>' + chance + '%</b> (base 2%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — <b>NO DISEASE CONTRACTED</b>.';
+                body += lineForResult(t.name, detail, 'success');
+                return;
+            }
+
+            diseaseRoll = randomInteger(100);
+            occRaw = randomInteger(8);
+            sevRaw = randomInteger(8);
+            occAdj = occRaw + conAdj + osMod;
+            sevAdj = sevRaw + conAdj + osMod;
+
+            if (occAdj <= 0 || sevAdj <= 0) {
+                detail = 'Disease chance: <b>' + chance + '%</b> (base 2%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — disease indicated, but adjusted occurrence or severity roll is 0 or less, so <b>NO DISEASE CONTRACTED</b>. Occurrence <b>' + occRaw + '</b> becomes <b>' + occAdj + '</b>; Severity <b>' + sevRaw + '</b> becomes <b>' + sevAdj + '</b>.';
+                body += lineForResult(t.name, detail, 'success');
+                return;
+            }
+
+            row = diseaseArea(diseaseRoll);
+            occurrence = occAdj <= row.acuteMax ? 'Acute' : 'Chronic';
+            if (sevAdj <= row.mildMax) severity = 'Mild';
+            else if (sevAdj <= row.severeMax) severity = 'Severe';
+            else severity = 'Terminal';
+
+            detail = 'Disease chance: <b>' + chance + '%</b> (base 2%, manual mod ' + chanceMod + '). Roll: <b>' + chanceRoll + '</b> — <b>DISEASE CONTRACTED</b>'
+                + ' | Disease table <b>' + diseaseRoll + '</b>: <b>' + h(row.area) + '</b>'
+                + ' | Occurrence <b>' + occRaw + '</b> + CON adj ' + (conAdj >= 0 ? '+' + conAdj : conAdj) + ' + extra ' + (osMod >= 0 ? '+' + osMod : osMod) + ' = <b>' + occAdj + '</b> → <b>' + occurrence + '</b>'
+                + ' | Severity <b>' + sevRaw + '</b> + CON adj ' + (conAdj >= 0 ? '+' + conAdj : conAdj) + ' + extra ' + (osMod >= 0 ? '+' + osMod : osMod) + ' = <b>' + sevAdj + '</b> → <b>' + severity + '</b>'
+                + '<div style="margin-top:6px;color:#ddd;">' + h(diseaseEffectText(row.area, severity)) + '</div>';
+            body += lineForResult(t.name, detail, 'failure', '#ffd27f');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('General Disease', body));
+    }
+
+    function doInsanity() {
+        var roll = randomInteger(20);
+        var insanityTable = {
+            1: {
+                title: 'Dipsomania',
+                text: 'This mild insanity manifests periodically. About once per week, or whenever near large quantities of alcoholic beverages, the afflicted begins drinking excessive quantities until passing out. There is a 50% chance the dipsomania continues upon awakening if near alcohol, and a 10% chance otherwise, in which case the individual will seek drink and become violent if denied.'
+            },
+            2: {
+                title: 'Kleptomania',
+                text: 'This mild insanity manifests as an uncontrollable urge to steal any small object available. The afflicted furtively pockets small items regardless of worth whenever possible, with a 90% probability of being seen if observed. The urge is uncontrollable and the individual will lie to avoid being prevented or when caught. Kleptomaniac thieves or assassins suffer -10% to stealing ability.'
+            },
+            3: {
+                title: 'Schizoid',
+                text: 'This mild insanity causes personality loss. The afflicted selects a role model and attempts to become like that person in every possible way, choosing someone as different as possible from the insane character.'
+            },
+            4: {
+                title: 'Pathological Liar',
+                text: 'After brief conversation, the afflicted begins making outrageous statements about abilities, possessions, experiences, or events. Whenever anything important is discussed, the afflicted cannot tell the truth and lies with absolute conviction, believing the falsehood to be true.'
+            },
+            5: {
+                title: 'Monomania',
+                text: 'The afflicted seems normal until presented with an idea or goal that seems promising. Then the character becomes obsessed with that end, thinking, talking, planning, and acting only toward it. Once the goal is achieved, the character manifests dementia praecox until a new purpose is found.'
+            },
+            6: {
+                title: 'Dementia Praecox',
+                text: 'The afflicted is uninterested in any undertaking. Nothing seems worthwhile, and the individual is filled with lassitude and ennui. No matter how important the situation, there is a 25% chance it will be ignored as meaningless.'
+            },
+            7: {
+                title: 'Melancholia',
+                text: 'Similar to dementia praecox, but marked by black moods, brooding, and hopelessness. The afflicted is 50% likely to ignore any given situation due to a fit of melancholia.'
+            },
+            8: {
+                title: 'Megalomania',
+                text: 'The afflicted is convinced that he or she is the best at everything: smartest, strongest, wisest, fastest, handsomest, and most powerful. Any suggestion otherwise causes immediate offense, and the afflicted demands the right to lead, perform important acts, and make all decisions.'
+            },
+            9: {
+                title: 'Delusional Insanity',
+                text: 'The afflicted is convinced of being a famous figure, monarch, demi-god, or similar personage. Those who fail to recognize this imagined station incur hostility. The afflicted acts according to a station not actually possessed, giving orders, drawing on nonexistent resources, and so on.'
+            },
+            10: {
+                title: 'Schizophrenia',
+                text: 'This split personality condition gives the afflicted 1 to 4 distinct personalities depending on severity. Each may differ in alignment, goals, and preferences. Onset is random, 1 in 6 per day, with the same chance of a new or former personality emerging. During stress situations, check 1 in 6 each round the stress continues.'
+            },
+            11: {
+                title: 'Mania',
+                text: 'This insanity strikes suddenly, 1 in 6 chance per turn, lasting 2-12 turns, with a 1 in 6 chance per turn of return to normal. The afflicted becomes hysterical, enraged, or maniacal, gains 18/50, 18/75, or 18/00 Strength depending on state, behaves violently, and is unreasoning but cunning. When it passes, the afflicted remembers nothing and does not believe being insane.'
+            },
+            12: {
+                title: 'Lunacy',
+                text: 'This violent and often homicidal state occurs whenever the moon is full or nearly full. The afflicted generally behaves as one in a maniacal state with paranoid, hallucinatory, or homicidal tendencies. During the moon\'s absence or first/last quarters, the afflicted is melancholiac. At other times, behavior is relatively normal, though suspicious and irascible.'
+            },
+            13: {
+                title: 'Paranoia',
+                text: 'The afflicted becomes convinced that others are plotting, spying, or listening. Over several days this extends to everyone nearby. The paranoid takes elaborate precautions with locks, guards, devices, food, and drink. In later stages, the afflicted may hire assassins or become homicidal to protect against the imagined plot.'
+            },
+            14: {
+                title: 'Manic-Depressive',
+                text: 'The afflicted swings between mania and depression in 1 to 4 day intervals. When excited, there is a 90% chance of becoming maniacal. When disappointed or frustrated, there is a 90% chance of becoming highly melancholic. Outside stimuli can also trigger rapid shifts.'
+            },
+            15: {
+                title: 'Hallucinatory Insanity',
+                text: 'The afflicted sees, hears, or senses things which do not exist. The more exciting or stressful the situation, the more likely hallucinations become. Common delusions include nonexistent objects or people, voices giving information or orders, imagined abilities or forms, or threatening creatures appearing from nowhere. Hallucinations continue 1 to 20 turns after the stress passes.'
+            },
+            16: {
+                title: 'Sado-Masochism',
+                text: 'This insanity is tied to maniacal urges. The afflicted is equally likely to be sadistic or masochistic. In a sadistic phase, the afflicted obsessively desires to inflict pain or death on any living thing. In a masochistic phase, the afflicted seeks to be hurt. After indulging the urge, normalcy returns for 1 to 3 days.'
+            },
+            17: {
+                title: 'Homicidal Mania',
+                text: 'The afflicted appears completely normal, except for a peculiar interest in weapons, poisons, and lethal devices. The insanity causes an obsessive need to kill a human or member of the same race every 1 to 4 days. If prevented, the afflicted becomes uncontrollably maniacal and attacks the first person encountered, then falls into melancholia for 1 to 6 days.'
+            },
+            18: {
+                title: 'Hebephrenia',
+                text: 'The afflicted withdraws from the real world, wandering aimlessly, talking to self, giggling, muttering, and acting childishly. This is constant. If sufficiently irritated, there is a 75% chance of becoming enraged and maniacal, attacking fiercely. Otherwise the afflicted becomes catatonic for 1 to 6 hours before returning to hebephrenic behavior.'
+            },
+            19: {
+                title: 'Suicidal Mania',
+                text: 'The afflicted has overwhelming urges to destroy self whenever means are present. The more dangerous the situation or item, the higher the probability, from 10% to 80%. If the afflicted does not react suicidally, melancholy follows for 1 to 6 days. If suicidal attempts are frustrated, the afflicted becomes maniacal for 2 to 8 turns, then melancholic for 2 to 12 days.'
+            },
+            20: {
+                title: 'Catatonia',
+                text: 'The afflicted completely withdraws from reality, sitting staring and unmoving, not reacting to stimuli, and eventually dying of dehydration if left alone. The individual can be moved, led, and fed, but does nothing personally. If continually provoked, there is a cumulative 1% chance per round of reacting with homicidal mania. Once provocation ceases, catatonia returns.'
+            }
+        };
+
+        var entry = insanityTable[roll];
+        var body = ''
+            + '<div style="line-height:1.4;">'
+            + '<div>Insanity roll: <b>' + roll + '</b></div>'
+            + '<div style="margin-top:6px;"><b>' + h(entry.title) + '</b></div>'
+            + '<div style="margin-top:6px;">' + h(entry.text) + '</div>'
+            + '</div>'
+            + '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+
+        sendToGM(wrap('Insanity', body));
+    }
+
+    function getTargetsForMsg(msg) {
+        var selected = selectedIdsFromMsg(msg);
+
+        if (selected.length) {
+            storeSelection(msg.playerid, selected);
+            return getTargets(selected);
+        }
+
+        return getTargets(getStoredSelection(msg.playerid));
+    }
+
+    function doDamage(msg, args) {
+        var amt = floatVal(args.amt, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Apply Damage', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var hp = applyDamage(t.token, amt);
+            body += lineForResult(
+                t.name,
+                'Damage applied: <b>' + h(amt) + '</b> | HP/Bar1: <b>' + h(hp.oldValue) + ' → ' + h(hp.newValue) + '</b>',
+                amt > 0 ? 'failure' : 'success'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Damage Applied', body));
+    }
+
+    function doAddMarker(msg, args) {
+        var marker = args.marker || 'none';
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Add Marker', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        if (!marker || marker === 'none') {
+            sendToGM(wrap('Add Marker', '<div>No marker selected.</div><div style="margin-top:8px;">' + button('Back', CMD) + '</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            applyMarker(t.token, marker);
+            body += lineForResult(t.name, 'Marker applied.', 'success');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Add Marker', body));
+    }
+
+    function doClearMarkers(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Remove All Markers', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            clearMarkers(t.token);
+            body += lineForResult(t.name, 'All token markers removed.', 'success');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Remove All Markers', body));
+    }
+
+    function doMorale(msg, args) {
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Morale', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var base = intVal(getAttr(t.cid, 'morale_base'), 0);
+            var target = base + mod;
+            var roll = randomInteger(100);
+            var success = roll <= target;
+            var diff = roll - target;
+            var failureText = success ? '' : (' | Result: <b>' + moraleFailureText(diff) + '</b>');
+
+            body += lineForResult(
+                t.name,
+                'Morale: <b>' + roll + '%</b> vs <b>' + target + '%</b> (base ' + base + ', mod ' + mod + ') — <b>' + (success ? 'PASS' : 'FAIL') + '</b>' + failureText,
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Morale Checks', body));
+    }
+
+    function doSurprise(msg, args) {
+        var snum = intVal(args.snum, 2);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Surprise', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var dieSides = intVal(getAttr(t.cid, 'surprise_die'), 6);
+            var baseTarget = intVal(getAttr(t.cid, 'surprise'), 0);
+            var finalTarget = baseTarget + snum;
+            var roll = randomInteger(dieSides);
+            var surprised = roll <= finalTarget;
+
+            body += lineForResult(
+                t.name,
+                'Surprise: <b>' + roll + '</b> on d' + dieSides + ' vs <b>' + finalTarget + '</b> (sheet ' + baseTarget + ', query ' + snum + ') — <b>' + (surprised ? 'SURPRISED' : 'NOT SURPRISED') + '</b>',
+                surprised ? 'failure' : 'success'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Surprise Checks', body));
+    }
+
+    function doSave(msg, args) {
+        var mod = intVal(args.mod, 0);
+        var stype = args.stype || '';
+        var dmgFail = floatVal(args.dmgfail, 0);
+        var dmgSuccess = floatVal(args.dmgsuccess, 0);
+        var cond = args.cond || 'none';
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+        var label = stype;
+
+        SAVE_TYPES.forEach(function (s) {
+            if (s.key === stype) label = s.label;
+        });
+
+        if (!targets.length) {
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var target = intVal(getAttr(t.cid, stype), 20);
+            var raw = randomInteger(20);
+            var final = raw + mod;
+            var success = final >= target;
+            var dmg = success ? dmgSuccess : dmgFail;
+            var hp = null;
+            var detail = 'Roll: <b>' + raw + '</b>';
+
+            if (mod) {
+                detail += ' + mod ' + mod + ' = <b>' + final + '</b>';
+            }
+
+            detail += ' vs save target <b>' + target + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            if (dmg > 0) {
+                hp = applyDamage(t.token, dmg);
+                detail += ' | Damage: <b>' + dmg + '</b> | HP/Bar1: <b>' + hp.oldValue + ' → ' + hp.newValue + '</b>';
+            }
+
+            if (!success && cond !== 'none') {
+                applyMarker(t.token, cond);
+                detail += ' | Condition applied.';
+            }
+
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap(label, body));
+    }
+
+    function doAbility(msg, args) {
+        var mod = intVal(args.mod, 0);
+        var atype = args.atype || '';
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+        var label = atype;
+
+        ABILITY_TYPES.forEach(function (a) {
+            if (a.key === atype) label = a.label;
+        });
+
+        if (!targets.length) {
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var target = intVal(getAttr(t.cid, atype), 0);
+            var raw = randomInteger(20);
+            var final = raw + mod;
+            var success = final <= target;
+            var detail = 'Roll: <b>' + raw + '</b>';
+
+            if (mod) {
+                detail += ' + mod ' + mod + ' = <b>' + final + '</b>';
+            }
+
+            detail += ' vs ability <b>' + target + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap(label + ' Checks', body));
+    }
+
+    function doAbility3d6(msg, args) {
+        var ability = (args.ability || 'strength').toLowerCase();
+        var diceCount = intVal(args.dice, 3);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+        var abilityLabels = {
+            strength: 'Strength',
+            dexterity: 'Dexterity',
+            constitution: 'Constitution',
+            intelligence: 'Intelligence',
+            wisdom: 'Wisdom',
+            charisma: 'Charisma'
+        };
+
+        if (!targets.length) {
+            sendToGM(wrap('3d6 Ability Check', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var score = intVal(getAttr(t.cid, ability), 0);
+            var rolls = [];
+            var total = 0;
+            var i, die, success, rollText, detail;
+
+            for (i = 0; i < diceCount; i++) {
+                die = randomInteger(6);
+                rolls.push(die);
+                total += die;
+            }
+
+            success = total <= score;
+            rollText = rolls.join(' + ');
+
+            detail = ''
+                + 'Ability: <b>' + h(abilityLabels[ability] || ability) + '</b>'
+                + ' | Score: <b>' + score + '</b>'
+                + ' | Roll: <b>' + rollText + ' = ' + total + '</b>'
+                + ' | Need ≤ <b>' + score + '</b>'
+                + ' — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>';
+
+            body += lineForResult(t.name, detail, success ? 'success' : 'failure');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('3d6 Ability Check', body));
+    }
+
+    function doReaction(msg, args) {
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Reaction', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var roll = clamp(randomInteger(100) + mod, 1, 100);
+            var text = reactionText(roll);
+            var color = reactionColor(roll);
+
+            body += lineForResult(
+                t.name,
+                'Reaction roll: <b>' + roll + '</b> — ' + h(text),
+                'noticed',
+                color
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Reaction Roll', body));
+    }
+
+    function doThief(msg, args) {
+        var ttype = args.ttype || '';
+        var hd = intVal(args.hd, 1);
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+        var label = ttype;
+
+        THIEF_TYPES.forEach(function (t) {
+            if (t.key === ttype) label = t.label;
+        });
+
+        if (!targets.length) {
+            sendToGM(wrap(label, '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var base = intVal(getAttr(t.cid, ttype), 0);
+            var finalChance = base + mod;
+            var roll = randomInteger(100);
+            var success;
+
+            if (ttype === 'pickpockets') {
+                finalChance += (hd * -5);
+            }
+
+            success = roll <= finalChance;
+
+            body += lineForResult(
+                t.name,
+                'Chance: <b>' + finalChance + '%</b> (base ' + base + (mod ? ', mod ' + mod : '') + (ttype === 'pickpockets' ? ', HD adj ' + (hd * -5) : '') + ') | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap(label, body));
+    }
+
+    function doHearNonThief(msg, args) {
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Hear Noise (Non-Thief)', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var raceData = hearNoiseRaceChanceFromCharacter(t.cid);
+            var chance = clamp(raceData.chance + mod, 1, 100);
+            var roll = randomInteger(100);
+            var success = roll <= chance;
+
+            body += lineForResult(
+                t.name,
+                raceData.label + ' chance: <b>' + chance + '%</b> | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Hear Noise (Non-Thief)', body));
+    }
+
+    function doMoveNonThief(msg, args) {
+        var armorPen = intVal(args.armorpen, 0);
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Move Silently (Non-Thief)', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var baseChance = 15;
+            var chance = clamp(baseChance + armorPen + mod, 0, 100);
+            var roll = randomInteger(100);
+            var success = roll <= chance;
+
+            body += lineForResult(
+                t.name,
+                'Chance: <b>' + chance + '%</b> (base ' + baseChance + '%, armor ' + moveSilentlyArmorLabel(armorPen) + ', armor adj ' + armorPen + ', mod ' + mod + ') | Roll: <b>' + roll + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Move Silently (Non-Thief)', body));
+    }
+
+    function doDetectInvisible(msg, args) {
+        var hd = intVal(args.hd, 7);
+        var intBand = intVal(args.iband, 3);
+        var mod = intVal(args.mod, 0);
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Detect Invisible Creatures', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var base = detectInvisibleChance(hd, intBand);
+            var chance = clamp(base + mod, 0, 100);
+            var roll = randomInteger(100);
+            var noticed = chance > 0 && roll <= chance;
+
+            body += lineForResult(
+                t.name,
+                'Chance: <b>' + chance + '%</b> (base ' + base + ', modifier ' + mod + ') | Roll: <b>' + roll + '</b> — <b>' + (noticed ? 'NOTICED' : 'NOT NOTICED') + '</b>',
+                noticed ? 'noticed' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD) + '</div>';
+        sendToGM(wrap('Detect Invisible Creatures', body));
+    }
+
+
+    function secretDoorsMenu(playerid) {
+        var body = ''
+            + '<div style="line-height:1.4;margin-bottom:8px;">'
+            + '<div><b>Quick Visual:</b> Elves may detect concealed or secret doors/items on a roll of <b>1 on 1d6</b>.</div>'
+            + '<div style="margin-top:6px;"><b>Quick Check on a Room:</b> <b>1 turn per 20 x 20 ft area</b>. Each character succeeds on a <b>1 or 2 on 1d6</b>.</div>'
+            + '<div style="margin-top:6px;"><b>Thorough Search:</b> <b>1 turn per 10 x 10 ft area</b>. Standard chance is <b>1 in 6</b>; <b>elves and half-elves 2 in 6</b>. Concealed items for elves/half-elves on <b>1-3</b>.</div>'
+            + '</div>'
+            + button('Quick Visual', CMD + ' --do quickvisualsecret', '#ffd27f')
+            + button('Quick Room Check', CMD + ' --do quickroomsecret', '#ffd27f')
+            + button('Thorough Search', CMD + ' --do thoroughsecret', '#ffd27f')
+            + '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+
+        sendToGM(wrap('Find Secret Doors/Traps', body));
+    }
+
+    function doQuickVisualSecret(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Quick Visual', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var race = (getAttr(t.cid, 'race') || '');
+            var roll = randomInteger(6);
+            var eligible = isElfRace(race) || isHalfElfRace(race);
+            var success = eligible && roll === 1;
+
+            body += lineForResult(
+                t.name,
+                'Race: <b>' + h(race || 'Unknown') + '</b> | Roll: <b>' + roll + '</b> on 1d6' + (eligible ? ' | Need <b>1</b>' : ' | <b>Not eligible</b>') + ' — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b>',
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Quick Room Check (Elves)', body));
+    }
+
+    function doQuickRoomSecret(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Quick Room Check', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var roll = randomInteger(6);
+            var success = roll <= 2;
+
+            body += lineForResult(
+                t.name,
+                'Roll: <b>' + roll + '</b> on 1d6 | Need <b>1-2</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b> | Time: <b>1 turn per 20 x 20 ft area</b>',
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Quick Search', body));
+    }
+
+    function doThoroughSecret(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        if (!targets.length) {
+            sendToGM(wrap('Thorough Search', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var race = (getAttr(t.cid, 'race') || '');
+            var roll = randomInteger(6);
+            var threshold = (isElfRace(race) || isHalfElfRace(race)) ? 2 : 1;
+            var success = roll <= threshold;
+            var concealedText = (isElfRace(race) || isHalfElfRace(race)) ? ' | Concealed items on <b>1-3</b>' : '';
+
+            body += lineForResult(
+                t.name,
+                'Race: <b>' + h(race || 'Unknown') + '</b> | Roll: <b>' + roll + '</b> on 1d6 | Need <b>1-' + threshold + '</b> — <b>' + (success ? 'SUCCESS' : 'FAILURE') + '</b> | Time: <b>1 turn per 10 x 10 ft area</b>' + concealedText,
+                success ? 'success' : 'failure'
+            );
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Thorough Search', body));
+    }
+
+    function doDwarfMining(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        function miningLine(label, rollText, success) {
+            return '<div style="margin-top:4px;color:' + (success ? '#8f8' : '#f88') + ';"><b>' + label + ':</b> ' + rollText + ' — <b>' + (success ? 'PASS' : 'FAIL') + '</b></div>';
+        }
+
+        if (!targets.length) {
+            sendToGM(wrap('Dwarf Mining Skills', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var slope = randomInteger(4);
+            var newConstruction = randomInteger(100);
+            var sliding = randomInteger(6);
+            var traps = randomInteger(6);
+            var depth = randomInteger(100);
+
+            var detail = ''
+                + miningLine('Detect grade or slope in passage, upwards or downwards', 'd4 = <b>' + slope + '</b> (need 1-3)', slope <= 3)
+                + miningLine('Detect new construction or passage/tunnel', 'd100 = <b>' + newConstruction + '</b> (need 01-75)', newConstruction <= 75)
+                + miningLine('Detect sliding or shifting walls or rooms', 'd6 = <b>' + sliding + '</b> (need 1-4)', sliding <= 4)
+                + miningLine('Detect traps involving pits, falling blocks, and other stonework', 'd6 = <b>' + traps + '</b> (need 1-3)', traps <= 3)
+                + miningLine('Determine approximate depth underground', 'd100 = <b>' + depth + '</b> (need 01-50)', depth <= 50)
+                + '<div style="margin-top:8px;color:#bbb;">The dwarf must be actively seeking the phenomenon. The information does not come automatically.</div>';
+
+            body += lineForResult(t.name, detail, 'noticed', '#ddd');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Dwarf Mining Skills', body));
+    }
+
+    function doGnomeMining(msg) {
+        var targets = getTargetsForMsg(msg);
+        var body = '';
+
+        function miningLine(label, rollText, success) {
+            return '<div style="margin-top:4px;color:' + (success ? '#8f8' : '#f88') + ';"><b>' + label + ':</b> ' + rollText + ' — <b>' + (success ? 'PASS' : 'FAIL') + '</b></div>';
+        }
+
+        if (!targets.length) {
+            sendToGM(wrap('Gnome Mining Skills', '<div>No selected tokens found. Select tokens and run <b>!groupcheck</b> first.</div>'));
+            return;
+        }
+
+        targets.forEach(function (t) {
+            var slope = randomInteger(10);
+            var unsafe = randomInteger(10);
+            var depth = randomInteger(10);
+            var direction = randomInteger(100);
+
+            var detail = ''
+                + miningLine('Detect grade or slope in passage upwards or downwards', 'd10 = <b>' + slope + '</b> (need 1-8)', slope <= 8)
+                + miningLine('Detect unsafe walls, ceilings, or floors', 'd10 = <b>' + unsafe + '</b> (need 1-7)', unsafe <= 7)
+                + miningLine('Determine approximate depth underground', 'd10 = <b>' + depth + '</b> (need 1-6)', depth <= 6)
+                + miningLine('Determine direction of travel underground', 'd100 = <b>' + direction + '</b> (need 01-50)', direction <= 50)
+                + '<div style="margin-top:8px;color:#bbb;">The gnome must be actively seeking the phenomenon. The information does not become apparent automatically.</div>';
+
+            body += lineForResult(t.name, detail, 'noticed', '#ddd');
+        });
+
+        body += '<div style="margin-top:8px;">' + button('Back', CMD + ' --menu lesscommon', '#ddd') + '</div>';
+        sendToGM(wrap('Gnome Mining Skills', body));
+    }
+
+    function doToggleMoraleHelp(msg, args) {
+        setMoraleHelp(msg.playerid, intVal(args.show, 0) === 1);
+        mainMenu(msg.playerid);
+    }
+
+    function doToggleDiseaseMods(msg, args) {
+        setDiseaseMods(msg.playerid, intVal(args.show, 0) === 1);
+        lessCommonMenu(msg.playerid);
+    }
+
+    on('chat:message', function (msg) {
+        var args;
+        var selected;
+
+        if (msg.type !== 'api') return;
+        if (msg.content.indexOf(CMD) !== 0) return;
+
+        args = parseArgs(msg.content);
+        selected = selectedIdsFromMsg(msg);
+
+        if (selected.length) {
+            storeSelection(msg.playerid, selected);
+        }
+
+        if (!args.menu && !args.do) {
+            if (!getStoredSelection(msg.playerid).length) {
+                sendToGM(wrap('GroupCheck 1E', '<div>Select at least one token and run <b>!groupcheck</b>.</div>'));
+                return;
+            }
+            mainMenu(msg.playerid);
+            return;
+        }
+
+        if (args.menu === 'help') { helpMenu(msg.playerid); return; }
+        if (args.menu === 'lesscommon') { lessCommonMenu(msg.playerid); return; }
+        if (args.menu === 'secretdoors') { secretDoorsMenu(msg.playerid); return; }
+        if (args.do === 'damage') { doDamage(msg, args); return; }
+        if (args.do === 'addmarker') { doAddMarker(msg, args); return; }
+        if (args.do === 'clearmarkers') { doClearMarkers(msg); return; }
+        if (args.do === 'morale') { doMorale(msg, args); return; }
+        if (args.do === 'surprise') { doSurprise(msg, args); return; }
+        if (args.do === 'save') { doSave(msg, args); return; }
+        if (args.do === 'ability') { doAbility(msg, args); return; }
+        if (args.do === 'ability3d6') { doAbility3d6(msg, args); return; }
+        if (args.do === 'reaction') { doReaction(msg, args); return; }
+        if (args.do === 'quickvisualsecret') { doQuickVisualSecret(msg); return; }
+        if (args.do === 'quickroomsecret') { doQuickRoomSecret(msg); return; }
+        if (args.do === 'thoroughsecret') { doThoroughSecret(msg); return; }
+        if (args.do === 'thief') { doThief(msg, args); return; }
+        if (args.do === 'hearnonthief') { doHearNonThief(msg, args); return; }
+        if (args.do === 'movenonthief') { doMoveNonThief(msg, args); return; }
+        if (args.do === 'detectinvis') { doDetectInvisible(msg, args); return; }
+        if (args.do === 'dwarfmining') { doDwarfMining(msg); return; }
+        if (args.do === 'gnomemining') { doGnomeMining(msg); return; }
+        if (args.do === 'togglemoralehelp') { doToggleMoraleHelp(msg, args); return; }
+        if (args.do === 'togglediseasemods') { doToggleDiseaseMods(msg, args); return; }
+        if (args.do === 'potiondelay') { doPotionDelay(); return; }
+        if (args.do === 'oildelay') { doOilDelay(); return; }
+        if (args.do === 'potionmiscibility') { doPotionMiscibility(); return; }
+        if (args.do === 'acidflaskhit') { doAcidFlaskHit(); return; }
+        if (args.do === 'holywaterhit') { doHolyWaterHit(); return; }
+        if (args.do === 'flamingoilhit') { doFlamingOilHit(); return; }
+        if (args.do === 'poisonflaskhit') { doPoisonFlaskHit(args.ptype, args.save); return; }
+        if (args.do === 'acidflaskmiss') { doFlaskMiss('Acid Flask Miss', 'Resolve splash or exposure from the landing point as appropriate.'); return; }
+        if (args.do === 'holywatermiss') { doFlaskMiss('Holy Water Miss', 'Resolve landing point and any splash from the impact area as appropriate.'); return; }
+        if (args.do === 'flamingoilmiss') { doFlaskMiss('Flaming Oil Miss', 'Resolve landing point and any flaming oil area from the impact point as appropriate.'); return; }
+        if (args.do === 'poisonflaskmiss') { doFlaskMiss('Poison Flask Miss', 'Resolve landing point and apply special poison delivery rules only if appropriate.'); return; }
+        if (args.do === 'alcoholcheck') { doAlcoholCheck(msg); return; }
+        if (args.do === 'alcoholrecovery') { doAlcoholRecovery(msg, args); return; }
+        if (args.do === 'alcoholreset') { doAlcoholReset(msg); return; }
+        if (args.do === 'generaldisease') { doGeneralDisease(msg, args); return; }
+        if (args.do === 'parasitic') { doParasitic(msg, args); return; }
+        if (args.do === 'insanity') { doInsanity(); return; }
+
+        mainMenu(msg.playerid);
+    });
+
+    log(SCRIPT + ' loaded');
+});

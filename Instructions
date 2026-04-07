@@ -1,0 +1,218 @@
+GroupCheck 1E Setup and Use Guide
+
+These instructions are for the standard-marker version of the script: GroupCheck1E_standard_markers.txt
+
+What you need
+
+You need a Roll20 Pro game with Mod/API access enabled. No other supporting API scripts are required for this script to work.
+
+How to install it
+
+Open your Roll20 game, go to the Mod/API Scripts page, create a new script, paste in the full contents of the file, and save it. If the script saves without errors, it is loaded.
+
+What your tokens and sheets need
+
+This script expects hit points to be on Bar 1. It also reads character sheet attributes for many checks, so your characters should have the expected attributes filled in, especially things like race, constitution, strength, dexterity, and the saving throw fields used by the script.
+
+For best results, tokens should represent characters. Some functions can still work on selected tokens, but many group checks rely on linked character attributes.
+
+How to use it
+
+Select one or more tokens, then type:
+
+!groupcheck
+
+That opens the menu in chat. Most buttons act on the tokens you last selected when you ran !groupcheck.
+
+If you want to change which tokens are being checked, select the new group first and run !groupcheck again.
+
+Main buttons
+Apply Damage
+
+Subtracts the amount you enter from Bar 1 for each selected token. It also updates the token markers for bloodied, unconscious, dead, negative hit points, and intoxication where appropriate.
+
+Morale
+
+Rolls morale for each selected token using the token’s sheet values plus any modifier you enter.
+
+Surprise
+
+Rolls surprise for each selected token.
+
+Reaction
+
+Rolls a separate reaction result for each selected token. Bad reactions appear red, neutral reactions use intermediate colors, and favorable reactions appear green.
+
+Quick Visual
+
+This is the fast secret-door/concealed-item check for elves and half-elves only. Each selected character rolls individually and shows pass or fail in color.
+
+Quick Room Check
+
+This is the quick room search version. Each selected character rolls separately and shows pass or fail.
+
+Thorough Search
+
+This is the slower, more careful secret-door search. Each selected character rolls separately, and elves and half-elves get their improved chance automatically.
+
+Saving Throw buttons
+
+These are the five save categories:
+
+Paralysis / Poison / Death
+Petrification / Polymorph
+Rods / Staves / Wands
+Breath Weapons
+Spells
+
+Each one rolls separately for every selected token. You can add a modifier, optional damage, and a condition marker on failure.
+
+Standard ability checks
+
+These are the normal:
+
+STR
+INT
+WIS
+DEX
+CON
+CHA
+
+They roll for each selected token using the sheet value and any modifier you enter.
+
+3d6 Ability Check
+
+This is the grouped roll-under ability check version. You choose the ability and task difficulty, and each selected token rolls separately.
+
+Thief skill buttons
+
+These are:
+
+Pick Pockets
+Open Locks
+Find/Remove Traps
+Move Silently
+Hide in Shadows
+Hear Noise
+
+Each selected token rolls separately using its thief skill values from the sheet.
+
+Hear Noise (Non-Thief)
+
+This automatically checks each selected character’s race and applies the correct hearing chance for non-thieves. This is meant for quickly checking a party of PCs together.
+
+Move Silently (Non-Thief)
+
+Uses the non-thief move silently rule with the script’s base chance and armor adjustment.
+
+Add Marker
+
+Applies a standard Roll20 token marker to all selected tokens.
+
+Remove All Markers
+
+Clears all token markers from the selected tokens.
+
+Less Common Checks
+
+Opens the secondary menu for the less common utility rolls.
+
+Help / Setup
+
+Shows general notes about how the script works.
+
+Less Common Checks
+Drink Potion Delay
+
+Rolls the delay before a potion takes full effect.
+
+Apply Oil Delay
+
+Rolls the delay for applying oil.
+
+Potion Miscibility
+
+Rolls the potion miscibility result and prints the full outcome.
+
+Acid Flask Hit
+
+Use this only after a hit has already been confirmed. It resolves breakage and the acid effect.
+
+Holy Water Hit
+
+Use this only after a hit has already been confirmed. It resolves breakage and the holy water effect.
+
+Flaming Oil Hit
+
+Use this only after a hit has already been confirmed. It resolves breakage and the flaming oil effect.
+
+Poison Flask Hit
+
+Use this only after a hit has already been confirmed. It resolves poison flask breakage and shows the poison result details.
+
+Acid Flask Miss
+
+Use this after a miss. It rolls scatter and resolves where the flask lands.
+
+Holy Water Miss
+
+Use this after a miss. It rolls scatter and resolves where the flask lands.
+
+Flaming Oil Miss
+
+Use this after a miss. It rolls scatter and resolves where the flask lands.
+
+Poison Flask Miss
+
+Use this after a miss. It rolls scatter and resolves where the poison flask lands.
+
+Alcohol CON Check
+
+Makes the intoxication Constitution check when the DM calls for one. Failed checks advance the intoxication state from slight to moderate to great to comatose.
+
+Alcohol Recovery
+
+Shows the recovery timing for the current intoxication level.
+
+Reset Intoxication
+
+Clears the intoxication state and related token marker.
+
+General Disease
+
+Rolls a general disease result using the disease table. The DM decides when to roll and enters any manual modifiers.
+
+Parasitic
+
+Rolls a parasitic infestation result using the parasitic table. The DM decides when to roll and enters any manual modifiers.
+
+Detect Invisible Creatures
+
+Resolves the detect invisible creatures chance based on the selected parameters.
+
+Dwarf Mining Skills
+
+Rolls each dwarf mining skill for the selected tokens and shows pass or fail in green or red.
+
+Gnome Mining Skills
+
+Rolls each gnome mining skill for the selected tokens and shows pass or fail in green or red.
+
+Insanity
+
+Rolls 1d20 on the insanity table and prints the full text result.
+
+Token markers used by this version
+
+This version was rewritten to use standard Roll20 markers so it can be shared more easily between games. It does not depend on your custom campaign marker IDs.
+
+It uses standard markers for things like:
+
+bloodied
+unconscious
+dead
+negative hit points
+intoxication levels
+Best practice for users
+
+Always select the tokens first, then run !groupcheck. If results look wrong, the first thing to check is whether the token represents a character and whether the needed sheet attributes actually exist.

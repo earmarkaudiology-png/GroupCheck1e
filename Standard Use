@@ -18,6 +18,54 @@ on('ready', function () {
         { key: 'savespells', label: 'Spells' }
     ];
 
+    var ITEM_SAVE_TYPES = [
+        { key: 'boneivory', label: 'Bone or Ivory' },
+        { key: 'ceramic', label: 'Ceramic' },
+        { key: 'cloth', label: 'Cloth' },
+        { key: 'crystalvial', label: 'Crystal or Vial' },
+        { key: 'glass', label: 'Glass' },
+        { key: 'leatherbook', label: 'Leather or Book' },
+        { key: 'liquid', label: 'Liquid' },
+        { key: 'metalhard', label: 'Metal, hard' },
+        { key: 'metalsoftjewelry', label: 'Metal, soft or Jewelry' },
+        { key: 'mirror', label: 'Mirror' },
+        { key: 'parchmentpaper', label: 'Parchment or Paper' },
+        { key: 'stonesmallgem', label: 'Stone, small or Gem' },
+        { key: 'woodropethin', label: 'Wood or Rope, thin' },
+        { key: 'woodropethick', label: 'Wood or Rope, thick' }
+    ];
+
+    var ITEM_ATTACK_FORMS = [
+        { key: '1', label: '1. Acid' },
+        { key: '2', label: '2. Blow, Crushing' },
+        { key: '3', label: '3. Blow, Normal' },
+        { key: '4', label: '4. Disintegration' },
+        { key: '5', label: '5. Fall' },
+        { key: '6', label: '6. Fireball (or breath)' },
+        { key: '7', label: '7. Fire, Magical' },
+        { key: '8', label: '8. Fire, Normal (oil)' },
+        { key: '9', label: '9. Frost, Magical' },
+        { key: '10', label: '10. Lightning Bolt' },
+        { key: '11', label: '11. Electrical Discharge/Current' }
+    ];
+
+    var ITEM_SAVE_MATRIX = {
+        boneivory:         [11,16,10,20, 6,17, 9,3,2, 8,1],
+        ceramic:           [ 4,18,12,19,11, 5, 3,2,4, 2,1],
+        cloth:             [12, 6, 3,20, 2,20,16,13,1,18,1],
+        crystalvial:       [ 6,19,14,20,13,10, 6,3,7,15,5],
+        glass:             [ 5,20,15,20,14,11, 7,4,6,17,1],
+        leatherbook:       [10, 4, 2,20, 1,13, 6,4,3,13,1],
+        liquid:            [15, 0, 0,20, 0,15,14,13,12,18,15],
+        metalhard:         [ 7, 6, 2,17, 2, 6, 2,1,1,11,1],
+        metalsoftjewelry:  [13,14, 9,19, 4,18,13,5,1,16,1],
+        mirror:            [12,20,15,20,13,14, 9,5,6,18,1],
+        parchmentpaper:    [16,11, 6,20, 0,25,21,18,2,20,1],
+        stonesmallgem:     [ 3,17, 7,18, 4, 7, 3,2,1,14,2],
+        woodropethin:      [ 9,13, 6,20, 2,15,11,9,1,10,1],
+        woodropethick:     [ 8,10, 3,19, 1,11, 7,5,1,12,1]
+    };
+
     var ABILITY_TYPES = [
         { key: 'strength', label: 'STR' },
         { key: 'intelligence', label: 'INT' },
@@ -296,6 +344,39 @@ on('ready', function () {
             parts.push(m.label + ',' + m.value);
         });
         return '?{' + queryLabel + '|' + parts.join('|') + '}';
+    }
+
+
+    function itemSaveTypeQuery(queryLabel) {
+        var parts = [];
+        ITEM_SAVE_TYPES.forEach(function (t) {
+            parts.push(t.label + ',' + t.key);
+        });
+        return '?{' + queryLabel + '|' + parts.join('|') + '}';
+    }
+
+    function itemAttackFormQuery(queryLabel) {
+        var parts = [];
+        ITEM_ATTACK_FORMS.forEach(function (a) {
+            parts.push(a.label + ',' + a.key);
+        });
+        return '?{' + queryLabel + '|' + parts.join('|') + '}';
+    }
+
+    function itemSaveTypeLabel(key) {
+        var i;
+        for (i = 0; i < ITEM_SAVE_TYPES.length; i++) {
+            if (ITEM_SAVE_TYPES[i].key === key) return ITEM_SAVE_TYPES[i].label;
+        }
+        return key;
+    }
+
+    function itemAttackFormLabel(key) {
+        var i;
+        for (i = 0; i < ITEM_ATTACK_FORMS.length; i++) {
+            if (ITEM_ATTACK_FORMS[i].key === String(key)) return ITEM_ATTACK_FORMS[i].label;
+        }
+        return key;
     }
 
     function getMarkerArray(token) {
@@ -620,6 +701,7 @@ on('ready', function () {
             + button('Rods / Staves / Wands', CMD + ' --do save --stype saverodsstaveswands --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
             + button('Breath Weapons', CMD + ' --do save --stype savebreathweapons --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
             + button('Spells', CMD + ' --do save --stype savespells --mod ?{Roll Modifier|0} --dmgfail ?{Damage on Failure|0} --dmgsuccess ?{Damage on Success|0} --cond ' + markerQuery('Condition on Failure'), '#8fd3ff')
+            + button('Item Save', CMD + ' --do itemsave --itype ' + itemSaveTypeQuery('Item Type') + ' --iform ' + itemAttackFormQuery('Attack Form') + ' --mod ?{Save Modifier|0}', '#8fd3ff')
             + '<hr style="border:0;border-top:1px solid #333;margin:8px 0;">'
             + button('STR', CMD + ' --do ability --atype strength --mod ?{Roll Modifier|0}', '#b7ffb0')
             + button('INT', CMD + ' --do ability --atype intelligence --mod ?{Roll Modifier|0}', '#b7ffb0')
@@ -1665,6 +1747,41 @@ function doGeneralDisease(msg, args) {
         sendToGM(wrap(label, body));
     }
 
+
+    function doItemSave(args) {
+        var itype = args.itype || 'crystalvial';
+        var iform = intVal(args.iform, 2);
+        var mod = intVal(args.mod, 0);
+        var matrixRow = ITEM_SAVE_MATRIX[itype] || ITEM_SAVE_MATRIX.crystalvial;
+        var baseTarget = matrixRow[iform - 1];
+        var finalTarget = baseTarget + mod;
+        var roll = randomInteger(20);
+        var body = '';
+        var success;
+        var detail;
+
+        if (baseTarget <= 0) {
+            detail = 'Item: <b>' + h(itemSaveTypeLabel(itype)) + '</b> | Attack form: <b>' + h(itemAttackFormLabel(iform)) + '</b> | Base save: <b>' + baseTarget + '</b> | This item is unaffected by this attack form.';
+            body += lineForResult('Item Save', detail, 'success');
+            body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+            sendToGM(wrap('Item Save', body));
+            return;
+        }
+
+        if (finalTarget < 1) { finalTarget = 1; }
+        success = roll >= finalTarget;
+        detail = 'Item: <b>' + h(itemSaveTypeLabel(itype)) + '</b>'
+            + ' | Attack form: <b>' + h(itemAttackFormLabel(iform)) + '</b>'
+            + ' | Roll: <b>' + roll + '</b> on d20'
+            + ' | Need <b>' + finalTarget + '+</b>'
+            + ' (base ' + baseTarget + (mod ? ', mod ' + mod : '') + ')'
+            + ' — <b>' + (success ? 'SURVIVES' : 'FAILS') + '</b>';
+
+        body += lineForResult('Item Save', detail, success ? 'success' : 'failure');
+        body += '<div style="margin-top:8px;">' + button('Back', CMD, '#ddd') + '</div>';
+        sendToGM(wrap('Item Save', body));
+    }
+
     function doAbility(msg, args) {
         var mod = intVal(args.mod, 0);
         var atype = args.atype || '';
@@ -2133,6 +2250,7 @@ function doGeneralDisease(msg, args) {
         if (args.do === 'alcoholreset') { doAlcoholReset(msg); return; }
         if (args.do === 'generaldisease') { doGeneralDisease(msg, args); return; }
         if (args.do === 'parasitic') { doParasitic(msg, args); return; }
+        if (args.do === 'itemsave') { doItemSave(args); return; }
         if (args.do === 'insanity') { doInsanity(); return; }
 
         mainMenu(msg.playerid);
